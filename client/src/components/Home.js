@@ -7,6 +7,8 @@ import { SocketContext } from "../context/socket";
 
 import { GameView } from "./Game";
 
+import useEventListener from "@use-it/event-listener";
+
 const useStyles = makeStyles((theme) => ({
   root: {
     height: "100vh",
@@ -15,12 +17,59 @@ const useStyles = makeStyles((theme) => ({
 
 const Home = ({ user, logout }) => {
   const history = useHistory();
-
-  const socket = useContext(SocketContext);
-  const [gameState, setgameState] = useState([]);
-
   const classes = useStyles();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const socket = useContext(SocketContext);
+
+  const [gameState, setgameState] = useState({
+    tankSpeed: 8,
+    mapWidth: 6000,
+    mapHeight: 4000,
+  });
+  const [tankState, setTankState] = useState({
+    me: {
+      health: 100,
+      angle: 0,
+      xPos: 100,
+      yPos: 300,
+      username: "Tankie",
+      id: 0,
+    },
+  });
+
+  const tankLogic = {
+    moveUp: (tank) => (tank.yPos -= gameState.tankSpeed),
+    moveDown: (tank) => (tank.yPos += gameState.tankSpeed),
+    moveLeft: (tank) => (tank.xPos -= gameState.tankSpeed),
+    moveRight: (tank) => (tank.xPos += gameState.tankSpeed),
+  };
+
+  const handler = ({ key }) => {
+    console.log("Key pressed: ", key);
+
+    const newState = { ...tankState };
+    const { me } = tankState;
+    switch (key) {
+      case "ArrowLeft":
+        newState.me.xPos = tankLogic.moveLeft(me);
+        break;
+      case "ArrowRight":
+        newState.me.xPos = tankLogic.moveRight(me);
+        break;
+      case "ArrowUp":
+        newState.me.yPos = tankLogic.moveUp(me);
+        break;
+      case "ArrowDown":
+        newState.me.yPos = tankLogic.moveDown(me);
+        break;
+
+      default:
+        break;
+    }
+    setTankState(newState);
+  };
+
+  useEventListener("keydown", handler);
 
   const markMessagesRead = async (lastReadData) => {
     try {
@@ -116,12 +165,15 @@ const Home = ({ user, logout }) => {
       await logout(user.id);
     }
   };
+
+  // console.log(tankState);
+
   //<Button onClick={handleLogout}>Logout</Button>
   return (
     <>
       <Grid container component="main" className={classes.root}>
         <CssBaseline />
-        <GameView gameState={gameState} />
+        <GameView gameState={gameState} tankState={tankState} />
       </Grid>
     </>
   );

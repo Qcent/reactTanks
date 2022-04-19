@@ -22,9 +22,10 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-const GameView = (gameState) => {
+const GameView = ({ gameState, tankState }) => {
   const classes = useStyles();
 
+  const { me } = tankState;
   return (
     <Box className={classes.root}>
       <Box className={classes.container}>
@@ -39,10 +40,11 @@ const GameView = (gameState) => {
         <Tank
           styling={{
             position: "absolute",
-            left: 100,
-            top: 100,
+            left: me.xPos,
+            top: me.yPos,
             zIndex: 2,
           }}
+          tankState={tankState}
         />
         <Overlay
           styling={{
