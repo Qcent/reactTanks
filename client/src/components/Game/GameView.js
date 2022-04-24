@@ -25,23 +25,19 @@ const useStyles = makeStyles(() => ({
 const GameView = ({ gameState, tankState }) => {
   const classes = useStyles();
 
-  const { me } = tankState;
   return (
     <Box className={classes.root}>
       <Box className={classes.container}>
         <Map
           styling={{
             position: "absolute",
-            left: 0,
-            top: 0,
             zIndex: 1,
           }}
+          gameState={gameState}
         />
         <Tank
           styling={{
             position: "absolute",
-            left: me.xPos,
-            top: me.yPos,
             zIndex: 2,
           }}
           tankState={tankState}
@@ -49,10 +45,9 @@ const GameView = ({ gameState, tankState }) => {
         <Overlay
           styling={{
             position: "absolute",
-            left: 0,
-            top: 0,
             zIndex: 3,
           }}
+          gameState={gameState}
         />
       </Box>
     </Box>

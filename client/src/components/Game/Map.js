@@ -3,7 +3,15 @@ import React from "react";
 
 import map from "../../map/map2-0.png";
 
-const Map = ({ styling }) => {
+const Map = ({ styling, gameState }) => {
+  const { mapXpos, mapYpos } = gameState;
+
+  styling = {
+    ...styling,
+    left: -mapXpos,
+    top: -mapYpos,
+  };
+
   return <img src={map} style={styling} alt="tankie" />;
 };
 

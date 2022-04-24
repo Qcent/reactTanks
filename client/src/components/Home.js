@@ -23,12 +23,13 @@ const Home = ({ user, logout }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const socket = useContext(SocketContext);
 
-  const [gameState, setgameState] = useState({
+  const [gameState, setGameState] = useState({
     tankSpeed: 8,
     mapWidth: 6000,
     mapHeight: 4000,
     mapXpos: 100,
     mapYpos: 100,
+    mapLock: true,
   });
   const [tankState, setTankState] = useState({
     me: {
@@ -42,6 +43,19 @@ const Home = ({ user, logout }) => {
     },
   });
 
+  const screenLogic = {
+    moveAtAngle: (theta, pos = 1) => {
+      return {
+        mapXpos:
+          gameState.mapXpos +
+          Math.cos(theta * RADS) * gameState.tankSpeed * pos,
+        mapYpos:
+          gameState.mapYpos +
+          Math.sin(theta * RADS) * gameState.tankSpeed * pos,
+      };
+    },
+  };
+
   const tankLogic = {
     moveUp: (tank) => tank.yPos - gameState.tankSpeed,
     moveDown: (tank) => tank.yPos + gameState.tankSpeed,
@@ -54,7 +68,7 @@ const Home = ({ user, logout }) => {
       tank.yPos + Math.sin(tank.theta * RADS) * gameState.tankSpeed * pos,
     ],
     printDetails: (tank) => {
-      console.log(tank);
+      console.log(tank, gameState);
     },
   };
 
@@ -74,10 +88,17 @@ const Home = ({ user, logout }) => {
         newState.me.theta = tankLogic.rotateRight(me);
         break;
       case "ArrowUp":
-        [newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me);
+        gameState.mapLock
+          ? setGameState((prev) => {
+              return { ...prev, ...screenLogic.moveAtAngle(me.theta) };
+            })
+          : ([newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me));
         break;
       case "ArrowDown":
         [newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me, -1);
+        break;
+      case "Tab":
+        gameState.mapLock = !gameState.mapLock;
         break;
 
       default:
