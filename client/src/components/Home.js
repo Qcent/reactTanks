@@ -9,6 +9,8 @@ import { GameView } from "./Game";
 
 import useEventListener from "@use-it/event-listener";
 
+const RADS = Math.PI / 180;
+
 const useStyles = makeStyles((theme) => ({
   root: {
     height: "100vh",
@@ -25,6 +27,8 @@ const Home = ({ user, logout }) => {
     tankSpeed: 8,
     mapWidth: 6000,
     mapHeight: 4000,
+    mapXpos: 100,
+    mapYpos: 100,
   });
   const [tankState, setTankState] = useState({
     me: {
@@ -32,16 +36,26 @@ const Home = ({ user, logout }) => {
       angle: 0,
       xPos: 100,
       yPos: 300,
+      theta: 0,
       username: "Tankie",
       id: 0,
     },
   });
 
   const tankLogic = {
-    moveUp: (tank) => (tank.yPos -= gameState.tankSpeed),
-    moveDown: (tank) => (tank.yPos += gameState.tankSpeed),
-    moveLeft: (tank) => (tank.xPos -= gameState.tankSpeed),
-    moveRight: (tank) => (tank.xPos += gameState.tankSpeed),
+    moveUp: (tank) => tank.yPos - gameState.tankSpeed,
+    moveDown: (tank) => tank.yPos + gameState.tankSpeed,
+    moveLeft: (tank) => tank.xPos - gameState.tankSpeed,
+    moveRight: (tank) => tank.xPos + gameState.tankSpeed,
+    rotateRight: (tank) => tank.theta + gameState.tankSpeed,
+    rotateLeft: (tank) => tank.theta - gameState.tankSpeed,
+    moveAtAngle: (tank, pos = 1) => [
+      tank.xPos + Math.cos(tank.theta * RADS) * gameState.tankSpeed * pos,
+      tank.yPos + Math.sin(tank.theta * RADS) * gameState.tankSpeed * pos,
+    ],
+    printDetails: (tank) => {
+      console.log(tank);
+    },
   };
 
   const handler = ({ key }) => {
@@ -49,18 +63,21 @@ const Home = ({ user, logout }) => {
 
     const newState = { ...tankState };
     const { me } = tankState;
+
+    tankLogic.printDetails(me);
+
     switch (key) {
       case "ArrowLeft":
-        newState.me.xPos = tankLogic.moveLeft(me);
+        newState.me.theta = tankLogic.rotateLeft(me);
         break;
       case "ArrowRight":
-        newState.me.xPos = tankLogic.moveRight(me);
+        newState.me.theta = tankLogic.rotateRight(me);
         break;
       case "ArrowUp":
-        newState.me.yPos = tankLogic.moveUp(me);
+        [newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me);
         break;
       case "ArrowDown":
-        newState.me.yPos = tankLogic.moveDown(me);
+        [newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me, -1);
         break;
 
       default:
