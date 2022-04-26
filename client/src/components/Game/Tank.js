@@ -5,8 +5,8 @@ const Tank = ({ styling, tankState }) => {
   styling = {
     ...styling,
     backgroundColor: "red",
-    width: 30,
-    height: 22,
+    width: me.width,
+    height: me.height,
     left: me.xPos,
     top: me.yPos,
     transform: `rotate(${me.theta}deg)`,

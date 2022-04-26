@@ -24,12 +24,14 @@ const Home = ({ user, logout }) => {
   const socket = useContext(SocketContext);
 
   const [gameState, setGameState] = useState({
-    tankSpeed: 8,
+    tankSpeed: 38,
     mapWidth: 6000,
     mapHeight: 4000,
     mapXpos: 100,
     mapYpos: 100,
     mapLock: true,
+    viewPortWidth: 800,
+    viewPortHeight: 600,
   });
   const [tankState, setTankState] = useState({
     me: {
@@ -39,34 +41,97 @@ const Home = ({ user, logout }) => {
       yPos: 300,
       theta: 0,
       username: "Tankie",
+      width: 30,
+      height: 22,
       id: 0,
     },
   });
 
   const screenLogic = {
     moveAtAngle: (theta, pos = 1) => {
-      return {
+      return screenLogic.coordLimitCheck({
         mapXpos:
           gameState.mapXpos +
           Math.cos(theta * RADS) * gameState.tankSpeed * pos,
         mapYpos:
           gameState.mapYpos +
           Math.sin(theta * RADS) * gameState.tankSpeed * pos,
-      };
+      });
+    },
+    coordLimitCheck: ({ mapXpos, mapYpos }) => {
+      let [xDrift, yDrift] = [0, 0];
+      const newMe = { ...tankState.me };
+
+      if (mapXpos > gameState.mapWidth - gameState.viewPortWidth) {
+        xDrift = mapXpos - (gameState.mapWidth - gameState.viewPortWidth);
+        mapXpos = gameState.mapWidth - gameState.viewPortWidth;
+      }
+      if (mapXpos < 0) {
+        xDrift = mapXpos;
+        mapXpos = 0;
+      }
+      if (mapYpos > gameState.mapHeight - gameState.viewPortHeight) {
+        yDrift = mapYpos - (gameState.mapHeight - gameState.viewPortHeight);
+        mapYpos = gameState.mapHeight - gameState.viewPortHeight;
+      }
+      if (mapYpos < 0) {
+        yDrift = mapYpos;
+        mapYpos = 0;
+      }
+
+      if (xDrift != 0) {
+        newMe.xPos = tankLogic.moveX(newMe, xDrift);
+      }
+      if (yDrift != 0) {
+        newMe.yPos = tankLogic.moveY(newMe, yDrift);
+      }
+      if (xDrift != 0 || yDrift != 0) {
+        setTankState((prev) => {
+          return {
+            ...prev,
+            me: { ...newMe },
+          };
+        });
+      }
+
+      return { mapXpos, mapYpos };
     },
   };
 
   const tankLogic = {
-    moveUp: (tank) => tank.yPos - gameState.tankSpeed,
-    moveDown: (tank) => tank.yPos + gameState.tankSpeed,
-    moveLeft: (tank) => tank.xPos - gameState.tankSpeed,
-    moveRight: (tank) => tank.xPos + gameState.tankSpeed,
-    rotateRight: (tank) => tank.theta + gameState.tankSpeed,
-    rotateLeft: (tank) => tank.theta - gameState.tankSpeed,
-    moveAtAngle: (tank, pos = 1) => [
-      tank.xPos + Math.cos(tank.theta * RADS) * gameState.tankSpeed * pos,
-      tank.yPos + Math.sin(tank.theta * RADS) * gameState.tankSpeed * pos,
-    ],
+    moveY: (tank, amt) => tank.yPos + amt,
+    moveX: (tank, amt) => tank.xPos + amt,
+    rotate: (tank, pos = 1) =>
+      tankLogic.rotateLimiter(tank.theta + gameState.tankSpeed * pos),
+    rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
+    moveAtAngle: (tank, pos = 1) => {
+      return tankLogic.coordLimitCheck(tank, {
+        xPos:
+          tank.xPos + Math.cos(tank.theta * RADS) * gameState.tankSpeed * pos,
+        yPos:
+          tank.yPos + Math.sin(tank.theta * RADS) * gameState.tankSpeed * pos,
+      });
+    },
+    coordLimitCheck: (tank, { xPos, yPos }) => {
+      if (gameState.mapLock) {
+      } else {
+      }
+
+      if (xPos > gameState.viewPortWidth - tank.width) {
+        xPos = gameState.viewPortWidth - tank.width;
+      }
+      if (xPos < 0) {
+        xPos = 0;
+      }
+      if (yPos > gameState.viewPortHeight - tank.height) {
+        yPos = gameState.viewPortHeight - tank.height;
+      }
+      if (yPos < 0) {
+        yPos = 0;
+      }
+
+      return { xPos, yPos };
+    },
     printDetails: (tank) => {
       console.log(tank, gameState);
     },
@@ -77,34 +142,49 @@ const Home = ({ user, logout }) => {
 
     const newState = { ...tankState };
     const { me } = tankState;
+    let update = false;
 
     tankLogic.printDetails(me);
 
     switch (key) {
       case "ArrowLeft":
-        newState.me.theta = tankLogic.rotateLeft(me);
+        newState.me.theta = tankLogic.rotate(me, -1);
+        update = true;
         break;
       case "ArrowRight":
-        newState.me.theta = tankLogic.rotateRight(me);
+        newState.me.theta = tankLogic.rotate(me);
+        update = true;
         break;
       case "ArrowUp":
-        gameState.mapLock
-          ? setGameState((prev) => {
-              return { ...prev, ...screenLogic.moveAtAngle(me.theta) };
-            })
-          : ([newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me));
+        if (gameState.mapLock) {
+          setGameState((prev) => {
+            return { ...prev, ...screenLogic.moveAtAngle(me.theta) };
+          });
+        } else {
+          newState.me = { ...me, ...tankLogic.moveAtAngle(me) };
+          update = true;
+        }
         break;
       case "ArrowDown":
-        [newState.me.xPos, newState.me.yPos] = tankLogic.moveAtAngle(me, -1);
+        if (gameState.mapLock) {
+          setGameState((prev) => {
+            return { ...prev, ...screenLogic.moveAtAngle(me.theta, -1) };
+          });
+        } else {
+          newState.me = { ...me, ...tankLogic.moveAtAngle(me, -1) };
+          update = true;
+        }
         break;
-      case "Tab":
-        gameState.mapLock = !gameState.mapLock;
+      case "q":
+        setGameState((prev) => {
+          return { ...prev, mapLock: !prev.mapLock };
+        });
         break;
 
       default:
         break;
     }
-    setTankState(newState);
+    if (update) setTankState(newState);
   };
 
   useEventListener("keydown", handler);

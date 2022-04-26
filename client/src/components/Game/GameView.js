@@ -11,8 +11,6 @@ const useStyles = makeStyles(() => ({
     justifyContent: "center",
   },
   container: {
-    width: 800,
-    height: 600,
     marginTop: "3em",
     border: "2px solid black",
     overflow: "hidden",
@@ -27,7 +25,13 @@ const GameView = ({ gameState, tankState }) => {
 
   return (
     <Box className={classes.root}>
-      <Box className={classes.container}>
+      <Box
+        className={classes.container}
+        style={{
+          width: gameState.viewPortWidth,
+          height: gameState.viewPortHeight,
+        }}
+      >
         <Map
           styling={{
             position: "absolute",
