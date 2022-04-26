@@ -5,10 +5,9 @@ import { Grid, CssBaseline, Button } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { SocketContext } from "../context/socket";
 
-import { GameView } from "./Game";
+import { GameView, GameInputs, GameLogic } from "./Game";
 
 import useEventListener from "@use-it/event-listener";
-import Inputs from "./Inputs";
 
 const RADS = Math.PI / 180;
 
@@ -53,6 +52,12 @@ const Home = ({ user, logout }) => {
   });
 
   const screenLogic = {
+    moveY: (amt) => {
+      return { mapYpos: gameState.mapYpos + amt };
+    },
+    moveX: (amt) => {
+      return { mapXpos: gameState.mapXpos + amt };
+    },
     moveAtAngle: (theta, pos = 1) => {
       return screenLogic.coordLimitCheck({
         mapXpos:
@@ -109,7 +114,7 @@ const Home = ({ user, logout }) => {
     moveX: (tank, amt) =>
       tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
     rotate: (tank, pos = 1) =>
-      tankLogic.rotateLimiter(tank.theta + gameState.tankSpeed * pos),
+      tankLogic.rotateLimiter(tank.theta + gameState.tankSpeed * 1.5 * pos),
     rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
     moveAtAngle: (tank, pos = 1) => {
       return tankLogic.coordLimitCheck(tank, {
@@ -207,7 +212,7 @@ const Home = ({ user, logout }) => {
       default:
         break;
     }
-    tankLogic.printDetails(newState.me);
+    // tankLogic.printDetails(newState.me);
     if (update) setTankState(newState);
   });
 
@@ -252,6 +257,7 @@ const Home = ({ user, logout }) => {
     const interval = setInterval(() => {
       setReadyState(true);
     }, 1000 / gameState.fps);
+
     return () => {
       // before the component is destroyed
       // unbind all event handlers used in this component
@@ -324,11 +330,21 @@ const Home = ({ user, logout }) => {
     <>
       <Grid container component="main" className={classes.root}>
         <CssBaseline />
-        <Inputs
+        <GameInputs
           inputState={inputState}
           pressedInputHandler={pressedInputHandler}
           readyState={readyState}
           setReadyState={setReadyState}
+        />
+        <GameLogic
+          gameState={gameState}
+          setGameState={setGameState}
+          tankState={tankState}
+          setTankState={setTankState}
+          readyState={readyState}
+          setReadyState={setReadyState}
+          tankLogic={tankLogic}
+          screenLogic={screenLogic}
         />
         <GameView gameState={gameState} tankState={tankState} />
       </Grid>

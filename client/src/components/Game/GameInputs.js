@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 
-const Inputs = ({
+const GameInputs = ({
   pressedInputHandler,
   inputState,
   readyState,
@@ -23,4 +23,4 @@ const Inputs = ({
   return null;
 };
 
-export default Inputs;
+export default GameInputs;
