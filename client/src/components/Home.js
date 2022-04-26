@@ -8,6 +8,7 @@ import { SocketContext } from "../context/socket";
 import { GameView } from "./Game";
 
 import useEventListener from "@use-it/event-listener";
+import Inputs from "./Inputs";
 
 const RADS = Math.PI / 180;
 
@@ -23,13 +24,17 @@ const Home = ({ user, logout }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const socket = useContext(SocketContext);
 
+  const [readyState, setReadyState] = useState(true);
+  const [inputState, setInputState] = useState({});
+
   const [gameState, setGameState] = useState({
-    tankSpeed: 38,
+    fps: 60,
+    tankSpeed: 3,
     mapWidth: 6000,
     mapHeight: 4000,
     mapXpos: 100,
     mapYpos: 100,
-    mapLock: true,
+    cruiseMode: true, // keep Tank centered
     viewPortWidth: 800,
     viewPortHeight: 600,
   });
@@ -79,13 +84,13 @@ const Home = ({ user, logout }) => {
         mapYpos = 0;
       }
 
-      if (xDrift != 0) {
-        newMe.xPos = tankLogic.moveX(newMe, xDrift);
+      if (xDrift !== 0) {
+        newMe.xPos = tankLogic.moveX(newMe, xDrift).xPos;
       }
-      if (yDrift != 0) {
-        newMe.yPos = tankLogic.moveY(newMe, yDrift);
+      if (yDrift !== 0) {
+        newMe.yPos = tankLogic.moveY(newMe, yDrift).yPos;
       }
-      if (xDrift != 0 || yDrift != 0) {
+      if (xDrift !== 0 || yDrift !== 0) {
         setTankState((prev) => {
           return {
             ...prev,
@@ -99,8 +104,10 @@ const Home = ({ user, logout }) => {
   };
 
   const tankLogic = {
-    moveY: (tank, amt) => tank.yPos + amt,
-    moveX: (tank, amt) => tank.xPos + amt,
+    moveY: (tank, amt) =>
+      tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
+    moveX: (tank, amt) =>
+      tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
     rotate: (tank, pos = 1) =>
       tankLogic.rotateLimiter(tank.theta + gameState.tankSpeed * pos),
     rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
@@ -113,21 +120,25 @@ const Home = ({ user, logout }) => {
       });
     },
     coordLimitCheck: (tank, { xPos, yPos }) => {
-      if (gameState.mapLock) {
+      if (gameState.cruiseMode) {
       } else {
       }
 
-      if (xPos > gameState.viewPortWidth - tank.width) {
-        xPos = gameState.viewPortWidth - tank.width;
+      if (xPos) {
+        if (xPos > gameState.viewPortWidth - tank.width) {
+          xPos = gameState.viewPortWidth - tank.width;
+        }
+        if (xPos < 0) {
+          xPos = 0;
+        }
       }
-      if (xPos < 0) {
-        xPos = 0;
-      }
-      if (yPos > gameState.viewPortHeight - tank.height) {
-        yPos = gameState.viewPortHeight - tank.height;
-      }
-      if (yPos < 0) {
-        yPos = 0;
+      if (yPos) {
+        if (yPos > gameState.viewPortHeight - tank.height) {
+          yPos = gameState.viewPortHeight - tank.height;
+        }
+        if (yPos < 0) {
+          yPos = 0;
+        }
       }
 
       return { xPos, yPos };
@@ -137,14 +148,26 @@ const Home = ({ user, logout }) => {
     },
   };
 
-  const handler = ({ key }) => {
-    console.log("Key pressed: ", key);
+  const inputDownHandler = ({ key }) => {
+    setInputState((prev) => {
+      prev[key] = true;
+      return { ...prev };
+    });
+  };
+
+  const inputUpHandler = ({ key }) => {
+    setInputState((prev) => {
+      prev[key] = false;
+      return { ...prev };
+    });
+  };
+
+  const pressedInputHandler = useCallback((key) => {
+    //console.log("Key pressed: ", key);
 
     const newState = { ...tankState };
     const { me } = tankState;
     let update = false;
-
-    tankLogic.printDetails(me);
 
     switch (key) {
       case "ArrowLeft":
@@ -156,7 +179,7 @@ const Home = ({ user, logout }) => {
         update = true;
         break;
       case "ArrowUp":
-        if (gameState.mapLock) {
+        if (gameState.cruiseMode) {
           setGameState((prev) => {
             return { ...prev, ...screenLogic.moveAtAngle(me.theta) };
           });
@@ -166,7 +189,7 @@ const Home = ({ user, logout }) => {
         }
         break;
       case "ArrowDown":
-        if (gameState.mapLock) {
+        if (gameState.cruiseMode) {
           setGameState((prev) => {
             return { ...prev, ...screenLogic.moveAtAngle(me.theta, -1) };
           });
@@ -177,17 +200,19 @@ const Home = ({ user, logout }) => {
         break;
       case "q":
         setGameState((prev) => {
-          return { ...prev, mapLock: !prev.mapLock };
+          return { ...prev, cruiseMode: !prev.cruiseMode };
         });
         break;
 
       default:
         break;
     }
+    tankLogic.printDetails(newState.me);
     if (update) setTankState(newState);
-  };
+  });
 
-  useEventListener("keydown", handler);
+  useEventListener("keydown", inputDownHandler);
+  useEventListener("keyup", inputUpHandler);
 
   const markMessagesRead = async (lastReadData) => {
     try {
@@ -222,6 +247,11 @@ const Home = ({ user, logout }) => {
     socket.on('remove-offline-user', removeOfflineUser);
     socket.on('new-message', addMessageToConversation);
 */
+
+    // Game Clock / logic and frame limiter
+    const interval = setInterval(() => {
+      setReadyState(true);
+    }, 1000 / gameState.fps);
     return () => {
       // before the component is destroyed
       // unbind all event handlers used in this component
@@ -230,6 +260,7 @@ const Home = ({ user, logout }) => {
       socket.off('remove-offline-user', removeOfflineUser);
       socket.off('new-message', addMessageToConversation);
       */
+      clearInterval(interval);
     };
   }, [
     //addMessageToConversation,
@@ -238,6 +269,8 @@ const Home = ({ user, logout }) => {
     //updateReadStatus,
     //addMemberToLocalConvo,
     socket,
+    gameState.fps,
+    setReadyState,
   ]);
 
   useEffect(() => {
@@ -291,6 +324,12 @@ const Home = ({ user, logout }) => {
     <>
       <Grid container component="main" className={classes.root}>
         <CssBaseline />
+        <Inputs
+          inputState={inputState}
+          pressedInputHandler={pressedInputHandler}
+          readyState={readyState}
+          setReadyState={setReadyState}
+        />
         <GameView gameState={gameState} tankState={tankState} />
       </Grid>
     </>
