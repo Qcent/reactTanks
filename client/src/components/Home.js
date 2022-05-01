@@ -28,8 +28,8 @@ const Home = ({ user, logout }) => {
     tankSpeed: 3,
     mapWidth: 6000,
     mapHeight: 4000,
-    mapXpos: 100,
-    mapYpos: 100,
+    mapXpos: 0,
+    mapYpos: 0,
     cruiseMode: true, // keep Tank centered
     viewPortWidth: 800,
     viewPortHeight: 600,
@@ -38,9 +38,9 @@ const Home = ({ user, logout }) => {
     me: {
       health: 100,
       xPos: 100,
-      yPos: 300,
-      screenX: 0,
-      screenY: 0,
+      yPos: 230,
+      screenX: 100,
+      screenY: 230,
       theta: 0,
       username: "Tankie",
       width: 30,
@@ -169,8 +169,6 @@ const Home = ({ user, logout }) => {
       await logout(user.id);
     }
   };
-
-  // console.log(tankState);
 
   //<Button onClick={handleLogout}>Logout</Button>
   return (

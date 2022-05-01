@@ -90,7 +90,6 @@ const GameLogic = ({
   // Lifecycle
 
   useEffect(() => {
-    //console.log(inputState);
     if (readyState) {
       // do stuff
 
@@ -147,6 +146,7 @@ const GameLogic = ({
           mapYpos,
         };
       } else if (updateMe || updateGame) {
+        // Battle Mode
         // tank drives around screen, dragging screen with it when at buffered edge
         updateMe = true;
         const buffer = 30;
@@ -158,24 +158,28 @@ const GameLogic = ({
         let screenX = newTanks.me.xPos - mapXpos;
         let screenY = newTanks.me.yPos - mapYpos;
 
-        console.log(mapXpos, mapYpos);
-
         //drag screen if needed
-        if (screenX > maxX) {
+        if (
+          screenX > maxX &&
+          mapXpos < gameState.mapWidth - gameState.viewPortWidth
+        ) {
           mapXpos -= maxX - screenX;
           screenX = maxX;
           bufferUpdate = true;
-        } else if (screenX < buffer) {
+        } else if (screenX < buffer && mapXpos > 0) {
           mapXpos -= minX - screenX;
           screenX = minX;
           bufferUpdate = true;
         }
 
-        if (screenY > maxY) {
+        if (
+          screenY > maxY &&
+          mapYpos < gameState.mapHeight - gameState.viewPortHeight
+        ) {
           mapYpos -= maxY - screenY;
           screenY = maxY;
           bufferUpdate = true;
-        } else if (screenY < minY) {
+        } else if (screenY < minY && mapYpos > 0) {
           mapYpos -= minY - screenY;
           screenY = minY;
           bufferUpdate = true;
@@ -194,7 +198,6 @@ const GameLogic = ({
             ...screenLogic.coordLimitCheck({ mapXpos, mapYpos }),
           };
         }
-        // ###########
       }
       // END OF ONSCREEN POSITION
 
