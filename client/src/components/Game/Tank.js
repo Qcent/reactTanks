@@ -7,8 +7,8 @@ const Tank = ({ styling, tankState }) => {
     backgroundColor: "red",
     width: me.width,
     height: me.height,
-    left: me.xPos,
-    top: me.yPos,
+    left: me.screenX,
+    top: me.screenY,
     transform: `rotate(${me.theta}deg)`,
   };
   return <div style={styling}></div>;
