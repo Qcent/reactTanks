@@ -157,7 +157,12 @@ const GameLogic = ({
           };
         } else if (totalDist > 0) {
           // progress towards a centered tank
-          const speed = totalDist < 7 ? totalDist : totalDist / 10;
+          const speed =
+            totalDist / 8 < gameState.tankSpeed * 1.5
+              ? totalDist < 2
+                ? totalDist
+                : gameState.tankSpeed * 1.5
+              : totalDist / 8;
           const { mapXpos, mapYpos } = screenLogic.coordLimitCheck(
             screenLogic.moveAtAngle(
               {
@@ -170,10 +175,11 @@ const GameLogic = ({
             )
           );
 
-          let screenX = parseInt(newTanks.me.xPos - mapXpos);
-          let screenY = parseInt(newTanks.me.yPos - mapYpos);
+          const screenX = parseFloat((newTanks.me.xPos - mapXpos).toFixed(1));
+          const screenY = parseFloat((newTanks.me.yPos - mapYpos).toFixed(1));
 
           if (screenX !== me.screenX || screenY !== me.screenY) {
+            console.log(totalDist, ":", speed);
             updateMe = true;
             newTanks.me = {
               ...newTanks.me,
