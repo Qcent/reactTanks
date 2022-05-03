@@ -122,8 +122,14 @@ const GameLogic = ({
         newTanks.me = { ...newTanks.me, ...tankLogic.moveAtAngle(me, -1) };
         updateMe = true;
       }
-      if (inputState["q"]) {
+      // toggle buttons
+      if (inputState["q"] && !newState.cruiseModeChange) {
         newState.cruiseMode = !gameState.cruiseMode;
+        newState.cruiseModeChange = true;
+        updateGame = true;
+      }
+      if (newState.cruiseModeChange && !inputState["q"]) {
+        newState.cruiseModeChange = false;
         updateGame = true;
       }
 
@@ -179,7 +185,6 @@ const GameLogic = ({
           const screenY = parseFloat((newTanks.me.yPos - mapYpos).toFixed(1));
 
           if (screenX !== me.screenX || screenY !== me.screenY) {
-            console.log(totalDist, ":", speed);
             updateMe = true;
             newTanks.me = {
               ...newTanks.me,
