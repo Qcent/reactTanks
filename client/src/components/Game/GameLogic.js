@@ -1,6 +1,14 @@
 import { useEffect } from "react";
+import PixelMap from "./PixelMap";
+import collisionMapFile from "../../map/map2-1.png";
 
 const RADS = Math.PI / 180;
+
+const collisionMapElement = new Image();
+collisionMapElement.src = collisionMapFile;
+const mapObjects = new PixelMap(collisionMapElement, 6000, 4000);
+
+console.log(mapObjects);
 
 const GameLogic = ({
   inputState,

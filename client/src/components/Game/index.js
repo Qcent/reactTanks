@@ -3,3 +3,4 @@ export { default as GameLogic } from "./GameLogic";
 export { default as Map } from "./Map";
 export { default as Tank } from "./Tank";
 export { default as Overlay } from "./Overlay";
+export { default as PixelMap } from "./PixelMap";
