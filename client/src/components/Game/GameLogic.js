@@ -20,11 +20,16 @@ const GameLogic = ({
     moveX: (amt) => {
       return { mapXpos: gameState.mapXpos + amt };
     },
+    findLength: (x, y) => Math.sqrt(x * x + y * y),
     slopeToAngle: (slope) => Math.atan(slope) / RADS,
-    moveAtAngle: (theta, pos = 1, speed = gameState.tankSpeed) => {
+    moveAtAngle: (
+      { mapXpos, mapYpos, theta },
+      pos = 1,
+      speed = gameState.tankSpeed
+    ) => {
       return screenLogic.coordLimitCheck({
-        mapXpos: gameState.mapXpos + Math.cos(theta * RADS) * speed * pos,
-        mapYpos: gameState.mapYpos + Math.sin(theta * RADS) * speed * pos,
+        mapXpos: mapXpos + Math.cos(theta * RADS) * speed * pos,
+        mapYpos: mapYpos + Math.sin(theta * RADS) * speed * pos,
       });
     },
     coordLimitCheck: ({ mapXpos, mapYpos }) => {
@@ -125,26 +130,67 @@ const GameLogic = ({
       // END OF INPUTS
 
       // handle onscreen position of tank
-      if (newState.cruiseMode && (updateMe || updateGame)) {
+      if (newState.cruiseMode) {
         // keep screen centered on tank
         const middleX = gameState.viewPortWidth / 2 - me.width / 2;
         const middleY = gameState.viewPortHeight / 2 - me.height / 2;
-        updateMe = updateGame = true;
+        const targetXDif = middleX - newTanks.me.screenX;
+        const targetYDif = middleY - newTanks.me.screenY;
+        const totalDist = screenLogic.findLength(targetXDif, targetYDif);
 
-        const { mapXpos, mapYpos, drift } = screenLogic.coordLimitCheck({
-          mapXpos: newTanks.me.xPos - middleX,
-          mapYpos: newTanks.me.yPos - middleY,
-        });
-        newTanks.me = {
-          ...newTanks.me,
-          screenX: middleX + drift.x,
-          screenY: middleY + drift.y,
-        };
-        newState = {
-          ...newState,
-          mapXpos,
-          mapYpos,
-        };
+        if (totalDist < 5 && (updateMe || updateGame)) {
+          updateMe = updateGame = true;
+          console.log("Centered");
+          const { mapXpos, mapYpos, drift } = screenLogic.coordLimitCheck({
+            mapXpos: newTanks.me.xPos - middleX,
+            mapYpos: newTanks.me.yPos - middleY,
+          });
+          newTanks.me = {
+            ...newTanks.me,
+            screenX: middleX + drift.x,
+            screenY: middleY + drift.y,
+          };
+          newState = {
+            ...newState,
+            mapXpos,
+            mapYpos,
+          };
+        } else if (totalDist > 0) {
+          // progress towards a centered tank
+          const speed = totalDist < 7 ? totalDist : totalDist / 10;
+          const { mapXpos, mapYpos } = screenLogic.coordLimitCheck(
+            screenLogic.moveAtAngle(
+              {
+                theta: screenLogic.slopeToAngle(targetYDif / targetXDif),
+                mapXpos: newState.mapXpos,
+                mapYpos: newState.mapYpos,
+              },
+              targetXDif < 0 ? 1 : -1, //direction of travel
+              speed
+            )
+          );
+
+          let screenX = parseInt(newTanks.me.xPos - mapXpos);
+          let screenY = parseInt(newTanks.me.yPos - mapYpos);
+
+          if (screenX !== me.screenX || screenY !== me.screenY) {
+            updateMe = true;
+            newTanks.me = {
+              ...newTanks.me,
+              screenX,
+              screenY,
+            };
+          }
+
+          if (mapXpos !== newState.mapXpos || mapYpos !== newState.mapYpos) {
+            updateGame = true;
+            newState = {
+              ...newState,
+              mapXpos,
+              mapYpos,
+            };
+          }
+        }
       } else if (updateMe || updateGame) {
         // Battle Mode
         // tank drives around screen, dragging screen with it when at buffered edge
@@ -198,6 +244,7 @@ const GameLogic = ({
             ...screenLogic.coordLimitCheck({ mapXpos, mapYpos }),
           };
         }
+        //end of battle mode
       }
       // END OF ONSCREEN POSITION
 
