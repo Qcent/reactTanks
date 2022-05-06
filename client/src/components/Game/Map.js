@@ -1,9 +1,6 @@
 import React from "react";
-//import { Box } from "@material-ui/core";
 
-import map from "../../map/map2-0.png";
-
-const Map = ({ styling, gameState }) => {
+const Map = ({ styling, gameState, mapImg }) => {
   const { mapXpos, mapYpos } = gameState;
 
   styling = {
@@ -12,7 +9,7 @@ const Map = ({ styling, gameState }) => {
     top: -mapYpos,
   };
 
-  return <img src={map} style={styling} alt="tankie" />;
+  return <img src={mapImg} style={styling} alt="tankie" />;
 };
 
 export default Map;

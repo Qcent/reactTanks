@@ -20,7 +20,7 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-const GameView = ({ gameState, tankState }) => {
+const GameView = ({ gameState, tankState, mapImg, mapOverlay, mapObjects }) => {
   const classes = useStyles();
 
   return (
@@ -38,6 +38,7 @@ const GameView = ({ gameState, tankState }) => {
             zIndex: 1,
           }}
           gameState={gameState}
+          mapImg={mapImg}
         />
         <Tank
           styling={{
@@ -52,6 +53,9 @@ const GameView = ({ gameState, tankState }) => {
             zIndex: 3,
           }}
           gameState={gameState}
+          tankState={tankState}
+          mapOverlay={mapOverlay}
+          mapObjects={mapObjects}
         />
       </Box>
     </Box>

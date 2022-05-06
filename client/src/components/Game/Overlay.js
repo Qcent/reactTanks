@@ -1,17 +1,32 @@
 import React from "react";
-//import { Box } from "@material-ui/core";
 
-import overlay from "../../map/map2-2.png";
-
-const Overlay = ({ styling, gameState }) => {
+const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
   const { mapXpos, mapYpos } = gameState;
+  const { me } = tankState;
 
   styling = {
     ...styling,
     left: -mapXpos,
     top: -mapYpos,
   };
-  return <img src={overlay} style={styling} alt="map" />;
+
+  const tankDotStyling = {
+    ...styling,
+    border: "1px solid #29d3e9",
+    borderRadius: "50%",
+    backgroundColor: "#29d3e9",
+    width: 1,
+    height: 1,
+    left: me.screenX + me.width / 2,
+    top: me.screenY + me.height / 2,
+  };
+
+  return (
+    <>
+      <img src={mapOverlay} style={styling} alt="map" />
+      <div style={tankDotStyling}></div>
+    </>
+  );
 };
 
 export default Overlay;

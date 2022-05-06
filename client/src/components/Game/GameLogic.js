@@ -1,14 +1,6 @@
 import { useEffect } from "react";
-import PixelMap from "./PixelMap";
-import collisionMapFile from "../../map/map2-1.png";
 
 const RADS = Math.PI / 180;
-
-const collisionMapElement = new Image();
-collisionMapElement.src = collisionMapFile;
-const mapObjects = new PixelMap(collisionMapElement, 6000, 4000);
-
-console.log(mapObjects);
 
 const GameLogic = ({
   inputState,
@@ -18,6 +10,7 @@ const GameLogic = ({
   setTankState,
   readyState,
   setReadyState,
+  mapObjects,
 }) => {
   // logic helpers
 
@@ -100,6 +93,9 @@ const GameLogic = ({
     },
   };
 
+  const collisionLogic = {
+    checkTank_MapCollisions: () => {},
+  };
   // Lifecycle
 
   useEffect(() => {
@@ -123,13 +119,31 @@ const GameLogic = ({
         updateMe = true;
       }
       if (inputState["ArrowUp"]) {
-        newTanks.me = { ...newTanks.me, ...tankLogic.moveAtAngle(me) };
+        newTanks.me = {
+          ...newTanks.me,
+          ...tankLogic.moveAtAngle(me),
+          direction: 1,
+        };
         updateMe = true;
       }
       if (inputState["ArrowDown"]) {
-        newTanks.me = { ...newTanks.me, ...tankLogic.moveAtAngle(me, -1) };
+        newTanks.me = {
+          ...newTanks.me,
+          ...tankLogic.moveAtAngle(me, -1),
+          direction: -1,
+        };
         updateMe = true;
       }
+      //movement check
+      if (
+        newTanks.me.direction !== 0 &&
+        !inputState["ArrowUp"] &&
+        !inputState["ArrowDown"]
+      ) {
+        newTanks.me = { ...newTanks.me, direction: 0 };
+        updateMe = true;
+      }
+
       // toggle buttons
       if (inputState["q"] && !newState.cruiseModeChange) {
         newState.cruiseMode = !gameState.cruiseMode;
@@ -153,8 +167,8 @@ const GameLogic = ({
         const totalDist = screenLogic.findLength(targetXDif, targetYDif);
 
         if (totalDist < 5 && (updateMe || updateGame)) {
+          // centered tank
           updateMe = updateGame = true;
-          console.log("Centered");
           const { mapXpos, mapYpos, drift } = screenLogic.coordLimitCheck({
             mapXpos: newTanks.me.xPos - middleX,
             mapYpos: newTanks.me.yPos - middleY,
@@ -267,11 +281,65 @@ const GameLogic = ({
       }
       // END OF ONSCREEN POSITION
 
+      //collision detection
+      if (updateMe) {
+        const width = -6 + me.width / 2;
+        const height = -6 + me.height / 2;
+        const xPos = Math.round(newTanks.me.xPos + me.width / 2);
+        const yPos = Math.round(newTanks.me.yPos + me.height / 2);
+        const x1 = xPos - width;
+        const y1 = yPos - height;
+        const x2 = xPos + width;
+        const y2 = yPos + height;
+
+        const tankFootPrint = mapObjects.getSubMap(x1, y1, x2, y2);
+
+        if (
+          (() => {
+            const last = tankFootPrint.length;
+            for (let i = 0; i <= tankFootPrint.length / 2; i++) {
+              if (tankFootPrint[i] || tankFootPrint[last - i]) {
+                console.log("Impact");
+                return true;
+              }
+            }
+            return false;
+          })()
+        ) {
+          updateMe = updateGame = false;
+        }
+      }
+
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       if (updateGame) setGameState({ ...newState });
 
-      if (updateMe) console.log(newTanks.me);
+      if (updateMe === 3) {
+        const width = me.width;
+        const height = me.height;
+        const xPos = Math.round(newTanks.me.xPos + me.width / 2);
+        const yPos = Math.round(newTanks.me.yPos + me.height / 2);
+        const x1 = xPos - width;
+        const y1 = yPos - height;
+        const x2 = xPos + width;
+        const y2 = yPos + height;
+        /*
+        mapObjects.drawDataToCanvas(
+          mapObjects.getSubData(x1, y1, x2, y2),
+          x2 - x1,
+          y2 - y1,
+          x1,
+          y1
+        );
+*/
+        /*
+        console.log(
+          mapObjects.getSubMap(x1, y1, x2, y2)
+          //   newTanks.me
+          //mapObjects.getPixelXY(            newTanks.me.xPos + me.width / 2,            newTanks.me.yPos + me.height / 2
+        );
+*/
+      }
       // end logic cycle
       setReadyState(false);
     }
@@ -285,6 +353,7 @@ const GameLogic = ({
     setReadyState,
     tankLogic,
     screenLogic,
+    mapObjects,
   ]);
 
   return null;

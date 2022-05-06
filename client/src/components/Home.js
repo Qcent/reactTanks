@@ -6,7 +6,12 @@ import { makeStyles } from "@material-ui/core/styles";
 import { SocketContext } from "../context/socket";
 
 import { GameView, GameLogic } from "./Game";
+import PixelMap from "./Game/PixelMap";
 import useEventListener from "@use-it/event-listener";
+
+import mapImg from "../map/map2-0.png";
+import mapObj from "../map/map2-1.png";
+import mapOverlay from "../map/map2-2.png";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -19,6 +24,9 @@ const Home = ({ user, logout }) => {
   const classes = useStyles();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const socket = useContext(SocketContext);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [mapObjects, setMapObjects] = useState({});
 
   const [readyState, setReadyState] = useState(true);
   const [inputState, setInputState] = useState({});
@@ -90,7 +98,34 @@ const Home = ({ user, logout }) => {
     return data;
   };
 
+  const cacheImages = useCallback(async (srcArray) => {
+    const promises = await srcArray.map((src) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = resolve(img);
+        img.onerror = reject(src);
+        img.src = src;
+      });
+    });
+
+    const imgEls = await Promise.all(promises);
+    const objectMap = new PixelMap(imgEls[1], 6000, 4000);
+
+    console.log("Building Map Data");
+    await objectMap.aquireData();
+    await objectMap.buildMap({ 2550255: 0, 25500: 1, "000": 2 });
+    console.log("Complete!");
+
+    setMapObjects(objectMap);
+    setIsLoading(false);
+  });
   // Lifecycle
+
+  useEffect(() => {
+    const imgs = [mapImg, mapObj, mapOverlay];
+
+    cacheImages(imgs);
+  }, []);
 
   useEffect(() => {
     // Socket init
@@ -173,19 +208,35 @@ const Home = ({ user, logout }) => {
   //<Button onClick={handleLogout}>Logout</Button>
   return (
     <>
-      <Grid container component="main" className={classes.root}>
-        <CssBaseline />
-        <GameLogic
-          inputState={inputState}
-          gameState={gameState}
-          setGameState={setGameState}
-          tankState={tankState}
-          setTankState={setTankState}
-          readyState={readyState}
-          setReadyState={setReadyState}
-        />
-        <GameView gameState={gameState} tankState={tankState} />
-      </Grid>
+      {isLoading ? (
+        <div>Loading Map</div>
+      ) : (
+        <Grid container component="main" className={classes.root}>
+          <CssBaseline />
+          <GameLogic
+            inputState={inputState}
+            gameState={gameState}
+            setGameState={setGameState}
+            tankState={tankState}
+            setTankState={setTankState}
+            readyState={readyState}
+            setReadyState={setReadyState}
+            mapObjects={mapObjects}
+          />
+          <GameView
+            gameState={gameState}
+            tankState={tankState}
+            mapImg={mapImg}
+            mapOverlay={mapOverlay}
+            mapObjects={mapObjects}
+          />
+          <canvas
+            id="testCanvas"
+            width={gameState.mapWidth}
+            height={gameState.mapHeight}
+          ></canvas>
+        </Grid>
+      )}
     </>
   );
 };
