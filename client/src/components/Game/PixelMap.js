@@ -24,11 +24,11 @@ export default class PixelMap {
     this.status = 0;
   }
 
-  async buildMap(key) {
+  async buildMap(key, verbose) {
     const totalIndx = this.width * this.height;
     let pxArray = new Uint8ClampedArray(totalIndx);
     for (let i = 0; i < totalIndx; i++) {
-      if (i && ((i / totalIndx) * 100) % 10 === 0) {
+      if (verbose && i && ((i / totalIndx) * 100) % 10 === 0) {
         console.log(`${(i / totalIndx) * 100}% Complete`);
       }
       const color = this.getPixelrgbString(i);
@@ -40,6 +40,8 @@ export default class PixelMap {
     }
     this.map = pxArray;
     this.status = 1;
+
+    verbose && console.log("100% Complete");
   }
 
   getPixelrgbString(index) {

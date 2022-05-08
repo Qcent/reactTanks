@@ -2,6 +2,160 @@ import { useEffect } from "react";
 
 const RADS = Math.PI / 180;
 
+// logic helpers
+
+const mathLogic = {
+  findLength: (x, y) => Math.sqrt(x * x + y * y),
+  slopeToAngle: (slope) => Math.atan(slope) / RADS,
+  rotateVirtex: (x, y, theta) => [
+    x * Math.cos(theta * RADS) - y * Math.sin(theta * RADS),
+    y * Math.cos(theta * RADS) + x * Math.sin(theta * RADS),
+  ],
+  translateVirtex: (point, newOrigin) => [
+    (point[0] += newOrigin[0]),
+    (point[1] += newOrigin[1]),
+  ],
+  pixelsBetweenPoints: (p1, p2) => {
+    const slope = (p1[1] - p2[1]) / (p1[0] - p2[0]),
+      length = mathLogic.findLength(
+        Math.abs(p1[0] - p2[0]),
+        Math.abs(p1[1] - p2[1])
+      ),
+      yLength = Math.abs(p1[1] - p2[1]);
+
+    let pixels = [];
+    const [startX, startY, endX] =
+        p1[0] < p2[0]
+          ? [Math.round(p1[0]), Math.round(p1[1]), Math.round(p2[0])]
+          : [Math.round(p2[0]), Math.round(p2[1]), Math.round(p1[0])],
+      highY = p1[1] < p2[1] ? Math.round(p1[1]) : Math.round(p2[1]);
+    const dataPoints = endX - startX,
+      minDataPoints = Math.ceil(length / 4),
+      extraPoints = minDataPoints - dataPoints,
+      xOffset = dataPoints / minDataPoints,
+      extraValue = yLength / minDataPoints;
+
+    if (extraPoints > 0) {
+      for (let i = 0; i < minDataPoints; i++) {
+        pixels.push([
+          startX + Math.floor(i * xOffset),
+          startY === highY
+            ? startY + Math.round(extraValue * i)
+            : startY - Math.round(extraValue * i),
+        ]);
+      }
+    } else {
+      for (let i = 0; i < endX - startX; i++) {
+        pixels.push([startX + i, startY + Math.round(slope * i)]);
+      }
+    }
+
+    return pixels;
+  },
+};
+
+const screenLogic = {
+  moveY: (amt, mapYpos) => {
+    return { mapYpos: mapYpos + amt };
+  },
+  moveX: (amt, mapXpos) => {
+    return { mapXpos: mapXpos + amt };
+  },
+  moveAtAngle: ({ mapXpos, mapYpos, theta }, pos = 1, speed = 1, gameState) => {
+    return screenLogic.coordLimitCheck(
+      {
+        mapXpos: mapXpos + Math.cos(theta * RADS) * speed * pos,
+        mapYpos: mapYpos + Math.sin(theta * RADS) * speed * pos,
+      },
+      gameState
+    );
+  },
+  coordLimitCheck: ({ mapXpos, mapYpos }, gameState) => {
+    let [xDrift, yDrift] = [0, 0];
+
+    if (mapXpos > gameState.mapWidth - gameState.viewPortWidth) {
+      xDrift = mapXpos - (gameState.mapWidth - gameState.viewPortWidth);
+      mapXpos = gameState.mapWidth - gameState.viewPortWidth;
+    }
+    if (mapXpos < 0) {
+      xDrift = mapXpos;
+      mapXpos = 0;
+    }
+    if (mapYpos > gameState.mapHeight - gameState.viewPortHeight) {
+      yDrift = mapYpos - (gameState.mapHeight - gameState.viewPortHeight);
+      mapYpos = gameState.mapHeight - gameState.viewPortHeight;
+    }
+    if (mapYpos < 0) {
+      yDrift = mapYpos;
+      mapYpos = 0;
+    }
+    return { mapXpos, mapYpos, drift: { x: xDrift, y: yDrift } };
+  },
+};
+
+const tankLogic = {
+  moveY: (tank, amt) =>
+    tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
+  moveX: (tank, amt) =>
+    tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
+  rotate: (tank, pos = 1) =>
+    tankLogic.rotateLimiter(tank.theta + tank.speed * 1.5 * pos),
+  rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
+  moveAtAngle: (tank, gameState, pos = 1) => {
+    return tankLogic.coordLimitCheck(
+      tank,
+      {
+        xPos: tank.xPos + Math.cos(tank.theta * RADS) * tank.speed * pos,
+        yPos: tank.yPos + Math.sin(tank.theta * RADS) * tank.speed * pos,
+      },
+      gameState
+    );
+  },
+  coordLimitCheck: (tank, { xPos, yPos }, gameState) => {
+    if (xPos) {
+      if (xPos > gameState.mapWidth - tank.width) {
+        xPos = gameState.mapWidth - tank.width;
+      }
+      if (xPos < 0) {
+        xPos = 0;
+      }
+    }
+    if (yPos) {
+      if (yPos > gameState.mapHeight - tank.height) {
+        yPos = gameState.mapHeight - tank.height;
+      }
+      if (yPos < 0) {
+        yPos = 0;
+      }
+    }
+    return { xPos, yPos };
+  },
+  getVerticesMapCoOrds: (tank) => {
+    // x,y of center of tank on map
+    const mapCenter = [tank.xPos + tank.width / 2, tank.yPos + tank.height / 2];
+
+    //calc vertices of tank rotated at theta and placed at origin of mapCenter
+    const v1 = mathLogic.translateVirtex(
+        mathLogic.rotateVirtex(-tank.width / 2, -tank.height / 2, tank.theta),
+        mapCenter
+      ),
+      v2 = mathLogic.translateVirtex(
+        mathLogic.rotateVirtex(tank.width / 2, -tank.height / 2, tank.theta),
+        mapCenter
+      ),
+      v3 = mathLogic.translateVirtex(
+        mathLogic.rotateVirtex(tank.width / 2, tank.height / 2, tank.theta),
+        mapCenter
+      ),
+      v4 = mathLogic.translateVirtex(
+        mathLogic.rotateVirtex(-tank.width / 2, tank.height / 2, tank.theta),
+        mapCenter
+      );
+
+    return [v1, v2, v3, v4];
+  },
+};
+
 const GameLogic = ({
   inputState,
   gameState,
@@ -12,90 +166,6 @@ const GameLogic = ({
   setReadyState,
   mapObjects,
 }) => {
-  // logic helpers
-
-  const screenLogic = {
-    moveY: (amt) => {
-      return { mapYpos: gameState.mapYpos + amt };
-    },
-    moveX: (amt) => {
-      return { mapXpos: gameState.mapXpos + amt };
-    },
-    findLength: (x, y) => Math.sqrt(x * x + y * y),
-    slopeToAngle: (slope) => Math.atan(slope) / RADS,
-    moveAtAngle: (
-      { mapXpos, mapYpos, theta },
-      pos = 1,
-      speed = gameState.tankSpeed
-    ) => {
-      return screenLogic.coordLimitCheck({
-        mapXpos: mapXpos + Math.cos(theta * RADS) * speed * pos,
-        mapYpos: mapYpos + Math.sin(theta * RADS) * speed * pos,
-      });
-    },
-    coordLimitCheck: ({ mapXpos, mapYpos }) => {
-      let [xDrift, yDrift] = [0, 0];
-
-      if (mapXpos > gameState.mapWidth - gameState.viewPortWidth) {
-        xDrift = mapXpos - (gameState.mapWidth - gameState.viewPortWidth);
-        mapXpos = gameState.mapWidth - gameState.viewPortWidth;
-      }
-      if (mapXpos < 0) {
-        xDrift = mapXpos;
-        mapXpos = 0;
-      }
-      if (mapYpos > gameState.mapHeight - gameState.viewPortHeight) {
-        yDrift = mapYpos - (gameState.mapHeight - gameState.viewPortHeight);
-        mapYpos = gameState.mapHeight - gameState.viewPortHeight;
-      }
-      if (mapYpos < 0) {
-        yDrift = mapYpos;
-        mapYpos = 0;
-      }
-      return { mapXpos, mapYpos, drift: { x: xDrift, y: yDrift } };
-    },
-  };
-
-  const tankLogic = {
-    moveY: (tank, amt) =>
-      tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
-    moveX: (tank, amt) =>
-      tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
-    rotate: (tank, pos = 1) =>
-      tankLogic.rotateLimiter(tank.theta + gameState.tankSpeed * 1.5 * pos),
-    rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
-    moveAtAngle: (tank, pos = 1) => {
-      return tankLogic.coordLimitCheck(tank, {
-        xPos:
-          tank.xPos + Math.cos(tank.theta * RADS) * gameState.tankSpeed * pos,
-        yPos:
-          tank.yPos + Math.sin(tank.theta * RADS) * gameState.tankSpeed * pos,
-      });
-    },
-    coordLimitCheck: (tank, { xPos, yPos }) => {
-      if (xPos) {
-        if (xPos > gameState.mapWidth - tank.width) {
-          xPos = gameState.mapWidth - tank.width;
-        }
-        if (xPos < 0) {
-          xPos = 0;
-        }
-      }
-      if (yPos) {
-        if (yPos > gameState.mapHeight - tank.height) {
-          yPos = gameState.mapHeight - tank.height;
-        }
-        if (yPos < 0) {
-          yPos = 0;
-        }
-      }
-      return { xPos, yPos };
-    },
-  };
-
-  const collisionLogic = {
-    checkTank_MapCollisions: () => {},
-  };
   // Lifecycle
 
   useEffect(() => {
@@ -121,7 +191,7 @@ const GameLogic = ({
       if (inputState["ArrowUp"]) {
         newTanks.me = {
           ...newTanks.me,
-          ...tankLogic.moveAtAngle(me),
+          ...tankLogic.moveAtAngle(me, gameState),
           direction: 1,
         };
         updateMe = true;
@@ -129,7 +199,7 @@ const GameLogic = ({
       if (inputState["ArrowDown"]) {
         newTanks.me = {
           ...newTanks.me,
-          ...tankLogic.moveAtAngle(me, -1),
+          ...tankLogic.moveAtAngle(me, gameState, -1),
           direction: -1,
         };
         updateMe = true;
@@ -164,15 +234,18 @@ const GameLogic = ({
         const middleY = gameState.viewPortHeight / 2 - me.height / 2;
         const targetXDif = middleX - newTanks.me.screenX;
         const targetYDif = middleY - newTanks.me.screenY;
-        const totalDist = screenLogic.findLength(targetXDif, targetYDif);
+        const totalDist = mathLogic.findLength(targetXDif, targetYDif);
 
         if (totalDist < 5 && (updateMe || updateGame)) {
           // centered tank
           updateMe = updateGame = true;
-          const { mapXpos, mapYpos, drift } = screenLogic.coordLimitCheck({
-            mapXpos: newTanks.me.xPos - middleX,
-            mapYpos: newTanks.me.yPos - middleY,
-          });
+          const { mapXpos, mapYpos, drift } = screenLogic.coordLimitCheck(
+            {
+              mapXpos: newTanks.me.xPos - middleX,
+              mapYpos: newTanks.me.yPos - middleY,
+            },
+            gameState
+          );
           newTanks.me = {
             ...newTanks.me,
             screenX: middleX + drift.x,
@@ -191,18 +264,16 @@ const GameLogic = ({
                 ? totalDist
                 : gameState.tankSpeed * 1.5
               : totalDist / 8;
-          const { mapXpos, mapYpos } = screenLogic.coordLimitCheck(
-            screenLogic.moveAtAngle(
-              {
-                theta: screenLogic.slopeToAngle(targetYDif / targetXDif),
-                mapXpos: newState.mapXpos,
-                mapYpos: newState.mapYpos,
-              },
-              targetXDif < 0 ? 1 : -1, //direction of travel
-              speed
-            )
+          const { mapXpos, mapYpos } = screenLogic.moveAtAngle(
+            {
+              theta: mathLogic.slopeToAngle(targetYDif / targetXDif),
+              mapXpos: newState.mapXpos,
+              mapYpos: newState.mapYpos,
+            },
+            targetXDif < 0 ? 1 : -1, //direction of travel
+            speed,
+            gameState
           );
-
           const screenX = parseFloat((newTanks.me.xPos - mapXpos).toFixed(1));
           const screenY = parseFloat((newTanks.me.yPos - mapYpos).toFixed(1));
 
@@ -274,7 +345,7 @@ const GameLogic = ({
           updateGame = true;
           newState = {
             ...newState,
-            ...screenLogic.coordLimitCheck({ mapXpos, mapYpos }),
+            ...screenLogic.coordLimitCheck({ mapXpos, mapYpos }, gameState),
           };
         }
         //end of battle mode
@@ -283,6 +354,53 @@ const GameLogic = ({
 
       //collision detection
       if (updateMe) {
+        //testing
+        const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
+        const [left, face, right] = [
+          mathLogic.pixelsBetweenPoints(v[0], v[1]),
+          newTanks.me.direction > -1
+            ? mathLogic.pixelsBetweenPoints(v[1], v[2])
+            : mathLogic.pixelsBetweenPoints(v[0], v[3]),
+          mathLogic.pixelsBetweenPoints(v[2], v[3]),
+        ];
+        newTanks.me.colLine = [...left, ...face, ...right];
+
+        if (
+          (() => {
+            //face
+            for (let i = 1; i < face.length - 1; i++) {
+              const [x, y] = face[i];
+              if (mapObjects.getMapPixelXY(x, y)) {
+                console.log("Impact");
+                return true;
+              }
+            }
+            //left
+            for (let i = 0; i < left.length - 1; i++) {
+              const [x, y] = left[i];
+              if (mapObjects.getMapPixelXY(x, y)) {
+                console.log("Impact");
+                return true;
+              }
+            }
+            //right
+            for (let i = 0; i < right.length - 1; i++) {
+              const [x, y] = right[i];
+              if (mapObjects.getMapPixelXY(x, y)) {
+                console.log("Impact");
+                return true;
+              }
+            }
+            return false;
+          })()
+        ) {
+          updateMe = updateGame = false;
+        }
+
+        //
+
+        /* OLD COLLISION DETECTION 
+        /////////////////////////////
         const width = -6 + me.width / 2;
         const height = -6 + me.height / 2;
         const xPos = Math.round(newTanks.me.xPos + me.width / 2);
@@ -308,21 +426,19 @@ const GameLogic = ({
         ) {
           updateMe = updateGame = false;
         }
+
+        */
       }
 
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       if (updateGame) setGameState({ ...newState });
 
-      if (updateMe === 3) {
-        const width = me.width;
-        const height = me.height;
-        const xPos = Math.round(newTanks.me.xPos + me.width / 2);
-        const yPos = Math.round(newTanks.me.yPos + me.height / 2);
-        const x1 = xPos - width;
-        const y1 = yPos - height;
-        const x2 = xPos + width;
-        const y2 = yPos + height;
+      //debugging output
+      if (updateMe) {
+        // const { v, colLine } = newTanks.me;
+        // console.log(v);
+        // console.log(colLine);
         /*
         mapObjects.drawDataToCanvas(
           mapObjects.getSubData(x1, y1, x2, y2),
@@ -331,14 +447,7 @@ const GameLogic = ({
           x1,
           y1
         );
-*/
-        /*
-        console.log(
-          mapObjects.getSubMap(x1, y1, x2, y2)
-          //   newTanks.me
-          //mapObjects.getPixelXY(            newTanks.me.xPos + me.width / 2,            newTanks.me.yPos + me.height / 2
-        );
-*/
+        */
       }
       // end logic cycle
       setReadyState(false);
@@ -351,8 +460,6 @@ const GameLogic = ({
     setTankState,
     readyState,
     setReadyState,
-    tankLogic,
-    screenLogic,
     mapObjects,
   ]);
 

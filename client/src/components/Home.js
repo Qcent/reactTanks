@@ -51,9 +51,16 @@ const Home = ({ user, logout }) => {
       screenY: 230,
       theta: 0,
       username: "Tankie",
+      speed: 3,
       width: 30,
       height: 22,
       id: 0,
+      v: [
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+      ],
     },
   });
 
@@ -113,8 +120,7 @@ const Home = ({ user, logout }) => {
 
     console.log("Building Map Data");
     await objectMap.aquireData();
-    await objectMap.buildMap({ 2550255: 0, 25500: 1, "000": 2 });
-    console.log("Complete!");
+    await objectMap.buildMap({ 2550255: 0, 25500: 1, "000": 2 }, true);
 
     setMapObjects(objectMap);
     setIsLoading(false);
@@ -230,11 +236,6 @@ const Home = ({ user, logout }) => {
             mapOverlay={mapOverlay}
             mapObjects={mapObjects}
           />
-          <canvas
-            id="testCanvas"
-            width={gameState.mapWidth}
-            height={gameState.mapHeight}
-          ></canvas>
         </Grid>
       )}
     </>
