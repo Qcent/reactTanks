@@ -98,15 +98,15 @@ const tankLogic = {
     tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
   moveX: (tank, amt) =>
     tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
-  rotate: (tank, pos = 1) =>
-    tankLogic.rotateLimiter(tank.theta + tank.speed * 1.5 * pos),
+  rotate: (tank, pos = 1, amt = tank.speed * 1.5) =>
+    tankLogic.rotateLimiter(tank.theta + amt * pos),
   rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
-  moveAtAngle: (tank, gameState, pos = 1) => {
+  moveAtAngle: (tank, gameState, pos = 1, amt = tank.speed) => {
     return tankLogic.coordLimitCheck(
       tank,
       {
-        xPos: tank.xPos + Math.cos(tank.theta * RADS) * tank.speed * pos,
-        yPos: tank.yPos + Math.sin(tank.theta * RADS) * tank.speed * pos,
+        xPos: tank.xPos + Math.cos(tank.theta * RADS) * amt * pos,
+        yPos: tank.yPos + Math.sin(tank.theta * RADS) * amt * pos,
       },
       gameState
     );
@@ -354,7 +354,6 @@ const GameLogic = ({
 
       //collision detection
       if (updateMe) {
-        //testing
         const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
         const [left, face, right] = [
           mathLogic.pixelsBetweenPoints(v[0], v[1]),
@@ -363,71 +362,185 @@ const GameLogic = ({
             : mathLogic.pixelsBetweenPoints(v[0], v[3]),
           mathLogic.pixelsBetweenPoints(v[2], v[3]),
         ];
+
+        //testing
         newTanks.me.colLine = [...left, ...face, ...right];
 
+        const cornerPercent = 0.15;
+        const impactData = {
+          face: {
+            pixels: [],
+          },
+          left: {
+            pixels: [],
+          },
+          right: {
+            pixels: [],
+          },
+        };
         if (
           (() => {
             //face
             for (let i = 1; i < face.length - 1; i++) {
               const [x, y] = face[i];
               if (mapObjects.getMapPixelXY(x, y)) {
-                console.log("Impact");
-                return true;
+                impactData.face.pixels.push([face[i], i]);
+
+                if (i / (face.length - 1) < cornerPercent) {
+                  //first corner pixels
+                  impactData.face.corner1
+                    ? impactData.face.corner1++
+                    : (impactData.face.corner1 = 1);
+                }
+                if (1 - i / (face.length - 1) < cornerPercent) {
+                  //second corner pixels
+                  impactData.face.corner2
+                    ? impactData.face.corner2++
+                    : (impactData.face.corner2 = 1);
+                }
               }
             }
+            impactData.face.hitsPosible = face.length - 1;
+            impactData.face.hitPercent =
+              impactData.face.pixels.length / impactData.face.hitsPosible;
             //left
             for (let i = 0; i < left.length - 1; i++) {
               const [x, y] = left[i];
               if (mapObjects.getMapPixelXY(x, y)) {
-                console.log("Impact");
-                return true;
+                impactData.left.pixels.push([left[i], i]);
+
+                if (i / left.length - 1 < cornerPercent) {
+                  //first corner pixels
+                  impactData.left.corner1
+                    ? impactData.left.corner1++
+                    : (impactData.left.corner1 = 1);
+                }
+                if (1 - (i / left.length - 1) < cornerPercent) {
+                  //second corner pixels
+                  impactData.left.corner2
+                    ? impactData.left.corner2++
+                    : (impactData.left.corner2 = 1);
+                }
               }
             }
+            impactData.left.hitsPosible = left.length - 1;
+            impactData.left.hitPercent =
+              impactData.left.pixels.length / impactData.left.hitsPosible;
             //right
             for (let i = 0; i < right.length - 1; i++) {
               const [x, y] = right[i];
               if (mapObjects.getMapPixelXY(x, y)) {
-                console.log("Impact");
-                return true;
+                impactData.right.pixels.push([right[i], i]);
+                //console.log("Right Impact");
+                //return true;
               }
             }
+            impactData.right.hitsPosible = right.length - 1;
+            impactData.right.hitPercent =
+              impactData.right.pixels.length / impactData.right.hitsPosible;
+
+            //defelection
+            let defelection = false;
+            // left corner hit
+            if (
+              impactData.left.pixels.length &&
+              impactData.face.hitPercent < cornerPercent &&
+              impactData.left.hitPercent < cornerPercent
+            ) {
+              if (
+                impactData.left.pixels[impactData.left.pixels.length - 1][1] <
+                  3 ||
+                impactData.left.pixels[impactData.left.pixels.length - 1][1] -
+                  impactData.left.hitsPosible <
+                  3
+              )
+                console.log("Twist Right");
+              newTanks.me.theta = tankLogic.rotate(newTanks.me, 1, 1);
+              defelection = true;
+            }
+
+            // right corner hit
+            if (
+              impactData.right.pixels.length &&
+              impactData.face.hitPercent < cornerPercent &&
+              impactData.right.hitPercent < cornerPercent
+            ) {
+              if (
+                impactData.right.pixels[impactData.right.pixels.length - 1][1] <
+                  3 ||
+                impactData.right.pixels[impactData.right.pixels.length - 1][1] -
+                  impactData.right.hitsPosible <
+                  3
+              )
+                console.log("Twist Left");
+              newTanks.me.theta = tankLogic.rotate(newTanks.me, -1, 1);
+              defelection = true;
+            }
+            //left side push
+            if (
+              !defelection &&
+              impactData.left.hitPercent > 0 &&
+              !impactData.right.hitPercent &&
+              !impactData.face.hitPercent
+            ) {
+              newTanks.me = {
+                ...newTanks.me,
+                ...tankLogic.moveAtAngle(
+                  {
+                    xPos: newTanks.me.xPos,
+                    yPos: newTanks.me.yPos,
+                    theta: newTanks.me.theta + 90,
+                  },
+                  newState,
+                  1,
+                  1
+                ),
+              };
+
+              console.log("Push Right");
+              defelection = true;
+            }
+
+            //right side push
+            if (
+              !defelection &&
+              impactData.right.hitPercent > 0 &&
+              !impactData.left.hitPercent &&
+              !impactData.face.hitPercent
+            ) {
+              newTanks.me = {
+                ...newTanks.me,
+                ...tankLogic.moveAtAngle(
+                  {
+                    xPos: newTanks.me.xPos,
+                    yPos: newTanks.me.yPos,
+                    theta: newTanks.me.theta + 90,
+                  },
+                  newState,
+                  -1,
+                  1
+                ),
+              };
+
+              console.log("Push Left");
+              defelection = true;
+            }
+
+            //logging
+            if (
+              impactData.face.pixels.length ||
+              impactData.left.pixels.length ||
+              impactData.right.pixels.length
+            ) {
+              console.log(impactData);
+              return !defelection;
+            }
+            ////////////////////
             return false;
           })()
         ) {
           updateMe = updateGame = false;
         }
-
-        //
-
-        /* OLD COLLISION DETECTION 
-        /////////////////////////////
-        const width = -6 + me.width / 2;
-        const height = -6 + me.height / 2;
-        const xPos = Math.round(newTanks.me.xPos + me.width / 2);
-        const yPos = Math.round(newTanks.me.yPos + me.height / 2);
-        const x1 = xPos - width;
-        const y1 = yPos - height;
-        const x2 = xPos + width;
-        const y2 = yPos + height;
-
-        const tankFootPrint = mapObjects.getSubMap(x1, y1, x2, y2);
-
-        if (
-          (() => {
-            const last = tankFootPrint.length;
-            for (let i = 0; i <= tankFootPrint.length / 2; i++) {
-              if (tankFootPrint[i] || tankFootPrint[last - i]) {
-                console.log("Impact");
-                return true;
-              }
-            }
-            return false;
-          })()
-        ) {
-          updateMe = updateGame = false;
-        }
-
-        */
       }
 
       // Update Tank and Game State

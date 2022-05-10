@@ -105,33 +105,36 @@ const Home = ({ user, logout }) => {
     return data;
   };
 
-  const cacheImages = useCallback(async (srcArray) => {
-    const promises = await srcArray.map((src) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = resolve(img);
-        img.onerror = reject(src);
-        img.src = src;
+  const cacheImages = useCallback(
+    async (srcArray) => {
+      const promises = await srcArray.map((src) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = resolve(img);
+          img.onerror = reject(src);
+          img.src = src;
+        });
       });
-    });
 
-    const imgEls = await Promise.all(promises);
-    const objectMap = new PixelMap(imgEls[1], 6000, 4000);
+      const imgEls = await Promise.all(promises);
+      const objectMap = new PixelMap(imgEls[1], 6000, 4000);
 
-    console.log("Building Map Data");
-    await objectMap.aquireData();
-    await objectMap.buildMap({ 2550255: 0, 25500: 1, "000": 2 }, true);
+      console.log("Building Map Data");
+      await objectMap.aquireData();
+      await objectMap.buildMap({ 2550255: 0, 25500: 1, "000": 2 }, true);
 
-    setMapObjects(objectMap);
-    setIsLoading(false);
-  });
+      setMapObjects(objectMap);
+      setIsLoading(false);
+    },
+    [setMapObjects, setIsLoading]
+  );
   // Lifecycle
 
   useEffect(() => {
     const imgs = [mapImg, mapObj, mapOverlay];
 
     cacheImages(imgs);
-  }, []);
+  }, [cacheImages]);
 
   useEffect(() => {
     // Socket init
