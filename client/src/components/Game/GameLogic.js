@@ -15,6 +15,12 @@ const mathLogic = {
     (point[0] += newOrigin[0]),
     (point[1] += newOrigin[1]),
   ],
+  differenceBetweenPoints: (p1, p2) => [
+    Math.abs(p1[0] - p2[0]),
+    Math.abs(p1[1] - p2[1]),
+  ],
+  aggregateDiffBetweenPoints: (p1, p2) =>
+    Math.abs(p1[0] - p2[0]) + Math.abs(p1[1] - p2[1]),
   pixelsBetweenPoints: (p1, p2) => {
     const slope = (p1[1] - p2[1]) / (p1[0] - p2[0]),
       length = mathLogic.findLength(
@@ -153,6 +159,19 @@ const tankLogic = {
       );
 
     return [v1, v2, v3, v4];
+  },
+  findNearestVertex: (tank, point, vertices) => {
+    let diff = 0,
+      bestMatch = -1;
+    for (let i = 0; i < vertices.length; i++) {
+      diff = mathLogic.aggregateDiffBetweenPoints(point, vertices[i]);
+      if (i === 0 || diff < bestMatch) {
+        bestMatch = i;
+      }
+      // conditions that returns if diff is less then some small number meaning it could be no other point
+      if (diff < tank.width / 6) return i;
+    }
+    return bestMatch;
   },
 };
 
@@ -355,114 +374,165 @@ const GameLogic = ({
       //collision detection
       if (updateMe) {
         const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
-        const [left, face, right] = [
+        const [left, front, right, back] = [
           mathLogic.pixelsBetweenPoints(v[0], v[1]),
-          newTanks.me.direction > -1
-            ? mathLogic.pixelsBetweenPoints(v[1], v[2])
-            : mathLogic.pixelsBetweenPoints(v[0], v[3]),
+          mathLogic.pixelsBetweenPoints(v[1], v[2]),
           mathLogic.pixelsBetweenPoints(v[2], v[3]),
+          mathLogic.pixelsBetweenPoints(v[0], v[3]),
         ];
 
         //testing
-        newTanks.me.colLine = [...left, ...face, ...right];
+        newTanks.me.colLine = [...left, ...front, ...right, ...back];
 
-        const cornerPercent = 0.15;
+        const cornerPercent = 0.17;
         const impactData = {
-          face: {
-            pixels: [],
-          },
-          left: {
-            pixels: [],
-          },
-          right: {
-            pixels: [],
-          },
+          v: {},
         };
+
+        //////////////////////
+        //function
+        const getCornerImpactData = (tank, face, v, axis, cornerData) => {
+          const stats = { pixels: 0 };
+
+          for (let i = 1; i < face.length - 1; i++) {
+            if (mapObjects.getMapPixelXY(face[i][0], face[i][1])) {
+              //stats.pixels.push([face[i], i]); // dont need this just a counter
+              stats.pixels++;
+
+              if (
+                i / (face.length - 1) < cornerPercent ||
+                1 - i / (face.length - 1) < cornerPercent
+              ) {
+                //if close enough to first or second corner pixels
+                const vertex = tankLogic.findNearestVertex(tank, face[i], v);
+                cornerData[vertex]
+                  ? cornerData[vertex][axis]
+                    ? cornerData[vertex][axis]++
+                    : (cornerData[vertex][axis] = 1)
+                  : (cornerData[vertex] = { [axis]: 1 });
+              }
+            }
+          }
+          stats.hitsPosible = face.length - 2;
+          stats.hitPercent = stats.pixels / stats.hitsPosible;
+          return stats;
+        };
+        //////////////////////
         if (
           (() => {
-            //face
-            for (let i = 1; i < face.length - 1; i++) {
-              const [x, y] = face[i];
-              if (mapObjects.getMapPixelXY(x, y)) {
-                impactData.face.pixels.push([face[i], i]);
-
-                if (i / (face.length - 1) < cornerPercent) {
-                  //first corner pixels
-                  impactData.face.corner1
-                    ? impactData.face.corner1++
-                    : (impactData.face.corner1 = 1);
-                }
-                if (1 - i / (face.length - 1) < cornerPercent) {
-                  //second corner pixels
-                  impactData.face.corner2
-                    ? impactData.face.corner2++
-                    : (impactData.face.corner2 = 1);
-                }
-              }
-            }
-            impactData.face.hitsPosible = face.length - 1;
-            impactData.face.hitPercent =
-              impactData.face.pixels.length / impactData.face.hitsPosible;
+            //front
+            impactData.front = getCornerImpactData(
+              newTanks.me,
+              front,
+              v,
+              "travelAxis",
+              impactData.v
+            );
+            //back
+            impactData.back = getCornerImpactData(
+              newTanks.me,
+              back,
+              v,
+              "travelAxis",
+              impactData.v
+            );
             //left
-            for (let i = 0; i < left.length - 1; i++) {
-              const [x, y] = left[i];
-              if (mapObjects.getMapPixelXY(x, y)) {
-                impactData.left.pixels.push([left[i], i]);
-
-                if (i / left.length - 1 < cornerPercent) {
-                  //first corner pixels
-                  impactData.left.corner1
-                    ? impactData.left.corner1++
-                    : (impactData.left.corner1 = 1);
-                }
-                if (1 - (i / left.length - 1) < cornerPercent) {
-                  //second corner pixels
-                  impactData.left.corner2
-                    ? impactData.left.corner2++
-                    : (impactData.left.corner2 = 1);
-                }
-              }
-            }
-            impactData.left.hitsPosible = left.length - 1;
-            impactData.left.hitPercent =
-              impactData.left.pixels.length / impactData.left.hitsPosible;
+            impactData.left = getCornerImpactData(
+              newTanks.me,
+              left,
+              v,
+              "sideAxis",
+              impactData.v
+            );
             //right
-            for (let i = 0; i < right.length - 1; i++) {
-              const [x, y] = right[i];
-              if (mapObjects.getMapPixelXY(x, y)) {
-                impactData.right.pixels.push([right[i], i]);
-                //console.log("Right Impact");
-                //return true;
-              }
-            }
-            impactData.right.hitsPosible = right.length - 1;
-            impactData.right.hitPercent =
-              impactData.right.pixels.length / impactData.right.hitsPosible;
+            impactData.right = getCornerImpactData(
+              newTanks.me,
+              right,
+              v,
+              "sideAxis",
+              impactData.v
+            );
 
-            //defelection
-            let defelection = false;
-            // left corner hit
+            //head on crash
             if (
-              impactData.left.pixels.length &&
-              impactData.face.hitPercent < cornerPercent &&
-              impactData.left.hitPercent < cornerPercent
+              newTanks.me.direction > 0 &&
+              impactData.front.hitPercent > cornerPercent
             ) {
-              if (
-                impactData.left.pixels[impactData.left.pixels.length - 1][1] <
-                  3 ||
-                impactData.left.pixels[impactData.left.pixels.length - 1][1] -
-                  impactData.left.hitsPosible <
-                  3
-              )
-                console.log("Twist Right");
-              newTanks.me.theta = tankLogic.rotate(newTanks.me, 1, 1);
-              defelection = true;
+              console.log("HeadOn Crash");
+              console.log(impactData);
+              return true;
+            }
+            if (
+              newTanks.me.direction < 0 &&
+              impactData.back.hitPercent > cornerPercent
+            ) {
+              console.log("RearOn Crash");
+              console.log(impactData);
+              return true;
+            }
+            //defelection
+            let defelection = false,
+              twist = 0;
+            // side back left corner bump
+            if (impactData?.v[0]?.sideAxis) {
+              twist -= impactData?.v[0]?.sideAxis;
+              if (impactData.left.hitPercent < cornerPercent)
+                defelection = true;
+            }
+            // side front left corner bump
+            if (impactData?.v[1]?.sideAxis) {
+              twist += impactData?.v[1]?.sideAxis;
+              if (impactData.left.hitPercent < cornerPercent)
+                defelection = true;
             }
 
+            // side back right corner bump
+            if (impactData?.v[3]?.sideAxis) {
+              twist += impactData?.v[3]?.sideAxis;
+              if (impactData.right.hitPercent < cornerPercent)
+                defelection = true;
+            }
+            // side front right corner bump
+            if (impactData?.v[2]?.sideAxis) {
+              twist -= impactData?.v[2]?.sideAxis;
+              if (impactData.right.hitPercent < cornerPercent)
+                defelection = true;
+            }
+
+            // travel front left corner bump
+            if (impactData?.v[1]?.travelAxis) {
+              twist += impactData?.v[1]?.travelAxis;
+              if (impactData.front.hitPercent < cornerPercent)
+                defelection = true;
+            }
+            // travel front right corner bump
+            if (impactData?.v[2]?.travelAxis) {
+              twist -= impactData?.v[2]?.travelAxis;
+              if (impactData.front.hitPercent < cornerPercent)
+                defelection = true;
+            }
+
+            // travel back left corner bump
+            if (impactData?.v[0]?.travelAxis) {
+              twist += impactData?.v[0]?.travelAxis;
+              if (impactData.back.hitPercent < cornerPercent)
+                defelection = true;
+            }
+            // travel back right corner bump
+            if (impactData?.v[3]?.travelAxis) {
+              twist -= impactData?.v[3]?.travelAxis;
+              if (impactData.back.hitPercent < cornerPercent)
+                defelection = true;
+            }
+
+            twist && console.log("Twist: ", twist);
+            newTanks.me.theta = tankLogic.rotate(newTanks.me, 1, twist * 1.75);
+
+            /*
             // right corner hit
             if (
               impactData.right.pixels.length &&
-              impactData.face.hitPercent < cornerPercent &&
+              impactData.front.hitPercent < cornerPercent &&
               impactData.right.hitPercent < cornerPercent
             ) {
               if (
@@ -476,12 +546,12 @@ const GameLogic = ({
               newTanks.me.theta = tankLogic.rotate(newTanks.me, -1, 1);
               defelection = true;
             }
+            */
+
             //left side push
             if (
-              !defelection &&
               impactData.left.hitPercent > 0 &&
-              !impactData.right.hitPercent &&
-              !impactData.face.hitPercent
+              impactData.left.hitPercent > impactData.right.hitPercent
             ) {
               newTanks.me = {
                 ...newTanks.me,
@@ -503,10 +573,8 @@ const GameLogic = ({
 
             //right side push
             if (
-              !defelection &&
               impactData.right.hitPercent > 0 &&
-              !impactData.left.hitPercent &&
-              !impactData.face.hitPercent
+              impactData.right.hitPercent > impactData.left.hitPercent
             ) {
               newTanks.me = {
                 ...newTanks.me,
@@ -528,9 +596,10 @@ const GameLogic = ({
 
             //logging
             if (
-              impactData.face.pixels.length ||
-              impactData.left.pixels.length ||
-              impactData.right.pixels.length
+              impactData?.front.pixels ||
+              impactData?.back.pixels ||
+              impactData?.left.pixels ||
+              impactData?.right.pixels
             ) {
               console.log(impactData);
               return !defelection;
