@@ -3,7 +3,7 @@ import React from "react";
 const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
   const { mapXpos, mapYpos } = gameState;
   const { me } = tankState;
-  const { colLine } = me;
+  const { colLine, bulletTest } = me;
 
   styling = {
     ...styling,
@@ -39,6 +39,19 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
       points.push(
         <div
           key={i}
+          style={{ ...pointStyle, left: x - mapXpos, top: y - mapYpos }}
+        ></div>
+      );
+    }
+  }
+
+  if (bulletTest?.length) {
+    for (let i = 0; i < bulletTest.length; i++) {
+      const [x, y] = bulletTest[i];
+
+      points.push(
+        <div
+          key={`bullet${i}`}
           style={{ ...pointStyle, left: x - mapXpos, top: y - mapYpos }}
         ></div>
       );

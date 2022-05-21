@@ -2,7 +2,7 @@ import React from "react";
 import { Box } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 
-import { Map, Overlay, Tank } from "./index";
+import { Map, Overlay, Tank, Bullets } from "./index";
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -47,10 +47,18 @@ const GameView = ({ gameState, tankState, mapImg, mapOverlay, mapObjects }) => {
           }}
           tankState={tankState}
         />
-        <Overlay
+        <Bullets
           styling={{
             position: "absolute",
             zIndex: 3,
+          }}
+          gameState={gameState}
+          tankState={tankState}
+        />
+        <Overlay
+          styling={{
+            position: "absolute",
+            zIndex: 4,
           }}
           gameState={gameState}
           tankState={tankState}

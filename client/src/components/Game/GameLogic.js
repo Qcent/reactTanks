@@ -21,6 +21,18 @@ const mathLogic = {
   ],
   aggregateDiffBetweenPoints: (p1, p2) =>
     Math.abs(p1[0] - p2[0]) + Math.abs(p1[1] - p2[1]),
+  getRelativePerpendicularCoOrd: (point, theta, dist) => {
+    theta += 90;
+    const [x, y] = [
+      Math.floor(Math.cos(theta * RADS) * dist),
+      Math.floor(Math.sin(theta * RADS) * dist),
+    ];
+
+    return [
+      [point[0] + x, point[1] + y],
+      [point[0] - x, point[1] - y],
+    ];
+  },
   pixelsBetweenPoints: (p1, p2) => {
     const slope = (p1[1] - p2[1]) / (p1[0] - p2[0]),
       length = mathLogic.findLength(
@@ -174,6 +186,124 @@ const tankLogic = {
     return bestMatch;
   },
 };
+const explosionLogic = {
+  type: { 0: { duration: 180, size: 19 } },
+  getAnimatedParticles: (exp) => {
+    const { xPos, yPos, step } = exp;
+    const { size, duration } = explosionLogic.type[exp.type];
+    if (step > duration) return;
+    let pointMap = [];
+    pointMap.push(
+      ...mathLogic.pixelsBetweenPoints(
+        [xPos - size, yPos],
+        [xPos + size, yPos]
+      ),
+      ...mathLogic.pixelsBetweenPoints([xPos, yPos - size], [xPos, yPos + size])
+    );
+    return pointMap;
+  },
+};
+
+const bulletLogic = {
+  type: { 0: { speed: 25, width: 9, height: 9 } },
+  moveOB: (bullet) => {
+    return {
+      xPos: -bulletLogic.type[bullet.type].width * 2,
+      yPos: -bulletLogic.type[bullet.type].height * 2,
+    };
+  },
+  rotate: (bullet, pos = 1, amt = 1.5) =>
+    bulletLogic.rotateLimiter(bullet.theta + amt * pos),
+  rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
+  moveAtAngle: (bullet) => {
+    return {
+      xPos:
+        bullet.xPos +
+        Math.cos(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
+      yPos:
+        bullet.yPos +
+        Math.sin(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
+    };
+  },
+  calcPrevCenterPoint: (bullet) => [
+    bullet.xPos +
+      Math.floor(bulletLogic.type[bullet.type].width / 2) -
+      Math.cos(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
+    bullet.yPos +
+      Math.floor(bulletLogic.type[bullet.type].width / 2) -
+      Math.sin(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
+  ],
+  isOnScreen: (bullet, gameState) => {
+    const { xPos, yPos, type } = bullet;
+    if (typeof type !== "number") return false;
+    if (
+      xPos > gameState.mapWidth + bulletLogic.type[type].width ||
+      xPos < -bulletLogic.type[type].width
+    ) {
+      return false;
+    }
+
+    if (
+      yPos > gameState.mapHeight + bulletLogic.type[type].height ||
+      yPos < -bulletLogic.type[type].height
+    ) {
+      return false;
+    }
+
+    return true;
+  },
+  collidedWithMapObject: (bullet, objectMap) => {
+    const radius = bulletLogic.type[bullet.type].width / 2,
+      center = [
+        bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+        bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+      ],
+      pixelCount =
+        bulletLogic.type[bullet.type].width *
+        bulletLogic.type[bullet.type].width,
+      pixelRad = Math.ceil(radius);
+
+    let pixelLog = [];
+    // METHOD 1
+    // Search bounding square of bullet
+    const onBullet = () => {
+      let x = Math.round(bullet.xPos),
+        y = Math.round(bullet.yPos - 1);
+      for (let i = 0; i < pixelCount; i++) {
+        //if pixel is within the radius of impact "circle"
+        if (mathLogic.aggregateDiffBetweenPoints(center, [x, y]) < pixelRad) {
+          if (objectMap.getMapPixelXY(x, y) === 1) pixelLog.push([x, y]);
+        }
+        x++;
+        if (i && (i - 1) % bulletLogic.type[bullet.type].width === 0) {
+          y++;
+          x = Math.round(bullet.xPos);
+        }
+      }
+    };
+
+    // METHOD 2
+    // Search path of bullet center and sides
+    const onPath = () => {
+      mathLogic
+        .pixelsBetweenPoints(center, bulletLogic.calcPrevCenterPoint(bullet))
+        .map((point) => {
+          const p = [[], point, []];
+          [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
+            point,
+            bullet.theta,
+            pixelRad - 1
+          );
+          p.forEach(([x, y]) => {
+            if (objectMap.getMapPixelXY(x, y) === 1) pixelLog.push([x, y]);
+          });
+        });
+    };
+
+    onPath();
+    return pixelLog;
+  },
+};
 
 const GameLogic = ({
   inputState,
@@ -233,7 +363,8 @@ const GameLogic = ({
         updateMe = true;
       }
 
-      // toggle buttons
+      /* TOGGLE BUTTONS */
+      // cruise mode
       if (inputState["q"] && !newState.cruiseModeChange) {
         newState.cruiseMode = !gameState.cruiseMode;
         newState.cruiseModeChange = true;
@@ -242,6 +373,17 @@ const GameLogic = ({
       if (newState.cruiseModeChange && !inputState["q"]) {
         newState.cruiseModeChange = false;
         updateGame = true;
+      }
+
+      // fire bullet
+      if (inputState[" "] && !newTanks.me.pressedFireButton) {
+        newTanks.me.fire = true;
+        newTanks.me.pressedFireButton = true;
+        updateMe = true;
+      }
+      if (newTanks.me.pressedFireButton && !inputState[" "]) {
+        newTanks.me.pressedFireButton = false;
+        updateMe = true;
       }
 
       // END OF INPUTS
@@ -371,6 +513,71 @@ const GameLogic = ({
       }
       // END OF ONSCREEN POSITION
 
+      // handle bullet firing, positions and collisons
+
+      newState.bulletArray = newState.bulletArray
+        .filter((bullet) => bulletLogic.isOnScreen(bullet, newState))
+        .map((bullet) => {
+          bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
+          newTanks.me.bulletTest = bulletLogic.collidedWithMapObject(
+            bullet,
+            mapObjects
+          );
+
+          if (newTanks.me.bulletTest.length) {
+            // want this to be the center of the path where first incountered obstical
+            // currently center of bullet at logic cycle
+            const center = [
+              bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+              bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+            ];
+            newState.explosionArray.push({
+              type: 0,
+              xPos: center[0],
+              yPos: center[1],
+              step: 0,
+            });
+            bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
+          }
+
+          return bullet;
+        });
+
+      if (newTanks.me.fire) {
+        newState.bulletArray.push({
+          type: 0,
+          xPos:
+            newTanks.me.xPos +
+            newTanks.me.width / 2 -
+            bulletLogic.type["0"].width / 2,
+          yPos:
+            newTanks.me.yPos +
+            newTanks.me.height / 2 -
+            bulletLogic.type["0"].height / 2,
+          theta: newTanks.me.theta,
+        });
+        newTanks.me.fire = false;
+      }
+
+      // END OF BULLET POSITION/COLLISION/FIRING
+
+      // handle explosion animation / destruction
+
+      newState.explosionArray = newState.explosionArray
+        .filter(
+          (explosion) =>
+            explosion.step < explosionLogic.type[explosion.type].duration
+        )
+        .map((explosion) => {
+          newTanks.me.bulletTest =
+            explosionLogic.getAnimatedParticles(explosion);
+          explosion = { ...explosion, step: explosion.step++ };
+
+          return explosion;
+        });
+
+      // END OF EXPLOSION ANIMATION/DESTRUCTION
+
       //collision detection
       if (updateMe) {
         const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
@@ -381,9 +588,10 @@ const GameLogic = ({
           mathLogic.pixelsBetweenPoints(v[0], v[3]),
         ];
 
-        //testing
+        //testing outline
         newTanks.me.colLine = [...left, ...front, ...right, ...back];
 
+        // % of pixels that represent a corner of a collision side.
         const cornerPercent = 0.17;
         const impactData = {
           v: {},
@@ -391,12 +599,11 @@ const GameLogic = ({
 
         //////////////////////
         //function
-        const getCornerImpactData = (tank, face, v, axis, cornerData) => {
+        const getImpactData = (tank, face, v, axis, cornerData) => {
           const stats = { pixels: 0 };
 
           for (let i = 1; i < face.length - 1; i++) {
             if (mapObjects.getMapPixelXY(face[i][0], face[i][1])) {
-              //stats.pixels.push([face[i], i]); // dont need this just a counter
               stats.pixels++;
 
               if (
@@ -418,10 +625,12 @@ const GameLogic = ({
           return stats;
         };
         //////////////////////
+        // an immediately invoked function that will stop tank in crash by returning true or
+        // deflect tank if grazing a wall and returning false
         if (
           (() => {
             //front
-            impactData.front = getCornerImpactData(
+            impactData.front = getImpactData(
               newTanks.me,
               front,
               v,
@@ -429,7 +638,7 @@ const GameLogic = ({
               impactData.v
             );
             //back
-            impactData.back = getCornerImpactData(
+            impactData.back = getImpactData(
               newTanks.me,
               back,
               v,
@@ -437,7 +646,7 @@ const GameLogic = ({
               impactData.v
             );
             //left
-            impactData.left = getCornerImpactData(
+            impactData.left = getImpactData(
               newTanks.me,
               left,
               v,
@@ -445,7 +654,7 @@ const GameLogic = ({
               impactData.v
             );
             //right
-            impactData.right = getCornerImpactData(
+            impactData.right = getImpactData(
               newTanks.me,
               right,
               v,
@@ -458,21 +667,22 @@ const GameLogic = ({
               newTanks.me.direction > 0 &&
               impactData.front.hitPercent > cornerPercent
             ) {
-              console.log("HeadOn Crash");
-              console.log(impactData);
+              //console.log("HeadOn Crash");
+              //console.log(impactData);
               return true;
             }
             if (
               newTanks.me.direction < 0 &&
               impactData.back.hitPercent > cornerPercent
             ) {
-              console.log("RearOn Crash");
-              console.log(impactData);
+              //console.log("RearOn Crash");
+              //console.log(impactData);
               return true;
             }
             //defelection
             let defelection = false,
               twist = 0;
+            const twistFactor = 1.75;
             // side back left corner bump
             if (impactData?.v[0]?.sideAxis) {
               twist -= impactData?.v[0]?.sideAxis;
@@ -525,28 +735,14 @@ const GameLogic = ({
                 defelection = true;
             }
 
-            twist && console.log("Twist: ", twist);
-            newTanks.me.theta = tankLogic.rotate(newTanks.me, 1, twist * 1.75);
-
-            /*
-            // right corner hit
-            if (
-              impactData.right.pixels.length &&
-              impactData.front.hitPercent < cornerPercent &&
-              impactData.right.hitPercent < cornerPercent
-            ) {
-              if (
-                impactData.right.pixels[impactData.right.pixels.length - 1][1] <
-                  3 ||
-                impactData.right.pixels[impactData.right.pixels.length - 1][1] -
-                  impactData.right.hitsPosible <
-                  3
-              )
-                console.log("Twist Left");
-              newTanks.me.theta = tankLogic.rotate(newTanks.me, -1, 1);
-              defelection = true;
+            if (twist !== 0) {
+              //console.log("Twist: ", twist);
+              newTanks.me.theta = tankLogic.rotate(
+                newTanks.me,
+                1,
+                twist * twistFactor
+              );
             }
-            */
 
             //left side push
             if (
@@ -567,7 +763,7 @@ const GameLogic = ({
                 ),
               };
 
-              console.log("Push Right");
+              //console.log("Push Right");
               defelection = true;
             }
 
@@ -590,7 +786,7 @@ const GameLogic = ({
                 ),
               };
 
-              console.log("Push Left");
+              //console.log("Push Left");
               defelection = true;
             }
 
@@ -615,6 +811,7 @@ const GameLogic = ({
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       if (updateGame) setGameState({ ...newState });
+      // else setGameState({ ...gameState, bulletArray: newState.bulletArray });
 
       //debugging output
       if (updateMe) {

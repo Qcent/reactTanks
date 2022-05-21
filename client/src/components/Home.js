@@ -41,6 +41,8 @@ const Home = ({ user, logout }) => {
     cruiseMode: true, // keep Tank centered
     viewPortWidth: 800,
     viewPortHeight: 600,
+    bulletArray: [],
+    explosionArray: [],
   });
   const [tankState, setTankState] = useState({
     me: {
