@@ -195,10 +195,26 @@ const explosionLogic = {
     let pointMap = [];
     pointMap.push(
       ...mathLogic.pixelsBetweenPoints(
-        [xPos - size, yPos],
-        [xPos + size, yPos]
+        mathLogic.translateVirtex(mathLogic.rotateVirtex(-size, 0, step + 1), [
+          xPos,
+          yPos,
+        ]),
+        mathLogic.translateVirtex(mathLogic.rotateVirtex(size, 0, step + 1), [
+          xPos,
+          yPos,
+        ])
       ),
-      ...mathLogic.pixelsBetweenPoints([xPos, yPos - size], [xPos, yPos + size])
+
+      ...mathLogic.pixelsBetweenPoints(
+        mathLogic.translateVirtex(mathLogic.rotateVirtex(0, -size, step + 1), [
+          xPos,
+          yPos,
+        ]),
+        mathLogic.translateVirtex(mathLogic.rotateVirtex(0, size, step + 1), [
+          xPos,
+          yPos,
+        ])
+      )
     );
     return pointMap;
   },
@@ -811,7 +827,7 @@ const GameLogic = ({
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       if (updateGame) setGameState({ ...newState });
-      // else setGameState({ ...gameState, bulletArray: newState.bulletArray });
+      else setGameState({ ...gameState, bulletArray: newState.bulletArray });
 
       //debugging output
       if (updateMe) {
