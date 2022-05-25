@@ -190,7 +190,7 @@ const tankLogic = {
 const explosionLogic = {
   type: { 0: { duration: 180, size: 19 } },
   arrayReducer: (explosions) =>
-    explosions.reduce(function (filtered, explosion) {
+    explosions.reduce((filtered, explosion) => {
       if (explosion.step < explosionLogic.type[explosion.type].duration) {
         filtered.push({
           ...explosion,
@@ -233,39 +233,11 @@ const explosionLogic = {
 };
 
 const bulletLogic = {
-  type: { 0: { speed: 25, width: 9, height: 9 } },
-  // arrayReducer: (bullets) =>
-  //   bullets.reduce(function (filtered, bullet, state) {
-  //     if (bulletLogic.isOnScreen(bullet, state)) {
-  //       bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
-  //       const collisionData = bulletLogic.collidedWithMapObject(
-  //         bullet,
-  //         mapObjects
-  //       );
-
-  //       if (collisionData.length) {
-  //         // want this to be the center of the path where first incountered obstical
-  //         // currently center of bullet at logic cycle
-  //         const center = [
-  //           bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-  //           bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-  //         ];
-  //         newState.explosionArray.push({
-  //           type: 0,
-  //           xPos: center[0],
-  //           yPos: center[1],
-  //           step: 0,
-  //         });
-  //         bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
-  //       }
-  //       filtered.push(bullet);
-  //     }
-  //     return filtered;
-  //   }, []),
+  type: { 0: { speed: 2.25, width: 7, height: 7 } },
   moveOB: (bullet) => {
     return {
-      xPos: -bulletLogic.type[bullet.type].width * 2,
-      yPos: -bulletLogic.type[bullet.type].height * 2,
+      xPos: -bullet.width * 2,
+      yPos: -bullet.height * 2,
     };
   },
   rotate: (bullet, pos = 1, amt = 1.5) =>
@@ -309,14 +281,13 @@ const bulletLogic = {
     return true;
   },
   collidedWithMapObject: (bullet, objectMap) => {
-    const radius = bulletLogic.type[bullet.type].width / 2,
+    const smallMeasure = bullet.width < bullet.height ? "width" : "height";
+    const radius = bullet[smallMeasure] / 2,
       center = [
-        bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-        bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+        bullet.xPos + Math.floor(bullet.height / 2),
+        bullet.yPos + Math.floor(bullet.width / 2),
       ],
-      pixelCount =
-        bulletLogic.type[bullet.type].width *
-        bulletLogic.type[bullet.type].width,
+      pixelCount = bullet[smallMeasure] * bullet[smallMeasure],
       pixelRad = Math.ceil(radius);
 
     let pixelLog = [];
@@ -340,6 +311,7 @@ const bulletLogic = {
 
     // METHOD 2
     // Search path of bullet center and sides
+    let col = false;
     const onPath = () => {
       mathLogic
         .pixelsBetweenPoints(center, bulletLogic.calcPrevCenterPoint(bullet))
@@ -351,13 +323,15 @@ const bulletLogic = {
             pixelRad - 1
           );
           p.forEach(([x, y]) => {
-            if (objectMap.getMapPixelXY(x, y) === 1) pixelLog.push([x, y]);
-            return pixelLog;
+            if (objectMap.getMapPixelXY(x, y) === 1) col = true;
+            pixelLog.push([x, y]);
+            // return pixelLog;
           });
         });
     };
 
     onPath();
+    return { pixelLog, col };
     return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
   },
 };
@@ -571,35 +545,27 @@ const GameLogic = ({
       // END OF ONSCREEN POSITION
 
       // handle bullet firing, positions and collisons
-
-      newState.bulletArray = newState.bulletArray
-        .filter((bullet) => bulletLogic.isOnScreen(bullet, newState))
-        .map((bullet) => {
+      newState.bulletArray = newState.bulletArray.reduce((filtered, bullet) => {
+        if (bulletLogic.isOnScreen(bullet, newState)) {
           bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
           const collisionData = bulletLogic.collidedWithMapObject(
             bullet,
             mapObjects
           );
-
-          if (collisionData.length) {
-            // want this to be the center of the path where first incountered obstical
-            // currently center of bullet at logic cycle
-            const center = [collisionData[0], collisionData[1]];
-            // const center = [
-            //   bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-            //   bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-            // ];
+          newTanks.me.colLine = collisionData.pixelLog;
+          if (collisionData.col) {
             newState.explosionArray.push({
               type: 0,
-              xPos: center[0],
-              yPos: center[1],
+              xPos: collisionData.pixelLog[0][0],
+              yPos: collisionData.pixelLog[0][1],
               step: 0,
             });
             bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
           }
-
-          return bullet;
-        });
+          filtered.push(bullet);
+        }
+        return filtered;
+      }, []);
 
       if (newTanks.me.fire) {
         newState.bulletArray.push({
@@ -613,10 +579,11 @@ const GameLogic = ({
             newTanks.me.height / 2 -
             bulletLogic.type["0"].height / 2,
           theta: newTanks.me.theta,
+          width: bulletLogic.type["0"].width,
+          height: bulletLogic.type["0"].height,
         });
         newTanks.me.fire = false;
       }
-
       // END OF BULLET POSITION/COLLISION/FIRING
 
       // handle explosion animation / destruction
@@ -636,7 +603,7 @@ const GameLogic = ({
         ];
 
         //testing outline
-        newTanks.me.colLine = [...left, ...front, ...right, ...back];
+        //newTanks.me.colLine = [...left, ...front, ...right, ...back];
 
         // % of pixels that represent a corner of a collision side.
         const cornerPercent = 0.17;
@@ -837,14 +804,13 @@ const GameLogic = ({
               defelection = true;
             }
 
-            //logging
             if (
               impactData?.front.pixels ||
               impactData?.back.pixels ||
               impactData?.left.pixels ||
               impactData?.right.pixels
             ) {
-              console.log(impactData);
+              //console.log(impactData);
               return !defelection;
             }
             ////////////////////
