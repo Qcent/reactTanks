@@ -186,8 +186,20 @@ const tankLogic = {
     return bestMatch;
   },
 };
+
 const explosionLogic = {
   type: { 0: { duration: 180, size: 19 } },
+  arrayReducer: (explosions) =>
+    explosions.reduce(function (filtered, explosion) {
+      if (explosion.step < explosionLogic.type[explosion.type].duration) {
+        filtered.push({
+          ...explosion,
+          step: explosion.step + 1,
+          particles: explosionLogic.getAnimatedParticles(explosion),
+        });
+      }
+      return filtered;
+    }, []),
   getAnimatedParticles: (exp) => {
     const { xPos, yPos, step } = exp;
     const { size, duration } = explosionLogic.type[exp.type];
@@ -222,6 +234,34 @@ const explosionLogic = {
 
 const bulletLogic = {
   type: { 0: { speed: 25, width: 9, height: 9 } },
+  // arrayReducer: (bullets) =>
+  //   bullets.reduce(function (filtered, bullet, state) {
+  //     if (bulletLogic.isOnScreen(bullet, state)) {
+  //       bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
+  //       const collisionData = bulletLogic.collidedWithMapObject(
+  //         bullet,
+  //         mapObjects
+  //       );
+
+  //       if (collisionData.length) {
+  //         // want this to be the center of the path where first incountered obstical
+  //         // currently center of bullet at logic cycle
+  //         const center = [
+  //           bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+  //           bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+  //         ];
+  //         newState.explosionArray.push({
+  //           type: 0,
+  //           xPos: center[0],
+  //           yPos: center[1],
+  //           step: 0,
+  //         });
+  //         bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
+  //       }
+  //       filtered.push(bullet);
+  //     }
+  //     return filtered;
+  //   }, []),
   moveOB: (bullet) => {
     return {
       xPos: -bulletLogic.type[bullet.type].width * 2,
@@ -312,12 +352,13 @@ const bulletLogic = {
           );
           p.forEach(([x, y]) => {
             if (objectMap.getMapPixelXY(x, y) === 1) pixelLog.push([x, y]);
+            return pixelLog;
           });
         });
     };
 
     onPath();
-    return pixelLog;
+    return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
   },
 };
 
@@ -535,18 +576,19 @@ const GameLogic = ({
         .filter((bullet) => bulletLogic.isOnScreen(bullet, newState))
         .map((bullet) => {
           bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
-          newTanks.me.bulletTest = bulletLogic.collidedWithMapObject(
+          const collisionData = bulletLogic.collidedWithMapObject(
             bullet,
             mapObjects
           );
 
-          if (newTanks.me.bulletTest.length) {
+          if (collisionData.length) {
             // want this to be the center of the path where first incountered obstical
             // currently center of bullet at logic cycle
-            const center = [
-              bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-              bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
-            ];
+            const center = [collisionData[0], collisionData[1]];
+            // const center = [
+            //   bullet.xPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+            //   bullet.yPos + Math.floor(bulletLogic.type[bullet.type].width / 2),
+            // ];
             newState.explosionArray.push({
               type: 0,
               xPos: center[0],
@@ -578,20 +620,9 @@ const GameLogic = ({
       // END OF BULLET POSITION/COLLISION/FIRING
 
       // handle explosion animation / destruction
-
-      newState.explosionArray = newState.explosionArray
-        .filter(
-          (explosion) =>
-            explosion.step < explosionLogic.type[explosion.type].duration
-        )
-        .map((explosion) => {
-          newTanks.me.bulletTest =
-            explosionLogic.getAnimatedParticles(explosion);
-          explosion = { ...explosion, step: explosion.step++ };
-
-          return explosion;
-        });
-
+      newState.explosionArray = explosionLogic.arrayReducer(
+        newState.explosionArray
+      );
       // END OF EXPLOSION ANIMATION/DESTRUCTION
 
       //collision detection
@@ -827,22 +858,15 @@ const GameLogic = ({
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       if (updateGame) setGameState({ ...newState });
-      else setGameState({ ...gameState, bulletArray: newState.bulletArray });
+      else
+        setGameState({
+          ...gameState,
+          bulletArray: newState.bulletArray,
+          explosionArray: newState.explosionArray,
+        });
 
       //debugging output
       if (updateMe) {
-        // const { v, colLine } = newTanks.me;
-        // console.log(v);
-        // console.log(colLine);
-        /*
-        mapObjects.drawDataToCanvas(
-          mapObjects.getSubData(x1, y1, x2, y2),
-          x2 - x1,
-          y2 - y1,
-          x1,
-          y1
-        );
-        */
       }
       // end logic cycle
       setReadyState(false);
