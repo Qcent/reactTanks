@@ -188,7 +188,7 @@ const tankLogic = {
 };
 
 const explosionLogic = {
-  type: { 0: { duration: 180, size: 19 } },
+  type: { 0: { duration: 35, size: 26 } },
   arrayReducer: (explosions) =>
     explosions.reduce((filtered, explosion) => {
       if (explosion.step < explosionLogic.type[explosion.type].duration) {
@@ -203,29 +203,38 @@ const explosionLogic = {
   getAnimatedParticles: (exp) => {
     const { xPos, yPos, step } = exp;
     const { size, duration } = explosionLogic.type[exp.type];
+    const spinFactor = 6.9;
+    // use a parabola to get size values
+    // (x+a)(x+b)=y
+    const peak = (duration / 2) * (duration / 2 - duration - 1),
+      calcSize =
+        (step + 0) * // (x+a)
+        (step - duration - 1) * // (x+b)
+        (((size / duration) * duration) / peak); // lower max value to size
+
     if (step > duration) return;
     let pointMap = [];
     pointMap.push(
       ...mathLogic.pixelsBetweenPoints(
-        mathLogic.translateVirtex(mathLogic.rotateVirtex(-size, 0, step + 1), [
-          xPos,
-          yPos,
-        ]),
-        mathLogic.translateVirtex(mathLogic.rotateVirtex(size, 0, step + 1), [
-          xPos,
-          yPos,
-        ])
+        mathLogic.translateVirtex(
+          mathLogic.rotateVirtex(-calcSize, 0, step * spinFactor),
+          [xPos, yPos]
+        ),
+        mathLogic.translateVirtex(
+          mathLogic.rotateVirtex(calcSize, 0, step * spinFactor),
+          [xPos, yPos]
+        )
       ),
 
       ...mathLogic.pixelsBetweenPoints(
-        mathLogic.translateVirtex(mathLogic.rotateVirtex(0, -size, step + 1), [
-          xPos,
-          yPos,
-        ]),
-        mathLogic.translateVirtex(mathLogic.rotateVirtex(0, size, step + 1), [
-          xPos,
-          yPos,
-        ])
+        mathLogic.translateVirtex(
+          mathLogic.rotateVirtex(0, -calcSize, step * spinFactor),
+          [xPos, yPos]
+        ),
+        mathLogic.translateVirtex(
+          mathLogic.rotateVirtex(0, calcSize, step * spinFactor),
+          [xPos, yPos]
+        )
       )
     );
     return pointMap;
@@ -233,7 +242,7 @@ const explosionLogic = {
 };
 
 const bulletLogic = {
-  type: { 0: { speed: 3.25, width: 7, height: 7 } },
+  type: { 0: { speed: 25, width: 7, height: 7 } },
   moveOB: (bullet) => {
     return {
       xPos: -bullet.width * 2,
@@ -573,6 +582,7 @@ const GameLogic = ({
               // xPos: collisionData[0],
               // yPos: collisionData[1],
               step: 0,
+              duration: explosionLogic.type["0"].duration,
             });
             bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
           }
