@@ -9,26 +9,29 @@ const Explosions = ({ styling, gameState }) => {
   };
   const pixelBuffer = 15;
 
-  return explosionArray.map((explosion, index) => {
+  return explosionArray.reduce((filtered, explosion, index) => {
     if (
       pixelBuffer - explosion.xPos - mapXpos <= viewPortWidth + pixelBuffer &&
       pixelBuffer - explosion.yPos - mapYpos <= viewPortHeight + pixelBuffer
     )
-      return explosion.particles.map((point, pIndex) => {
-        return (
-          <div
-            key={`exparticle${index}${pIndex}`}
-            style={{
-              ...styling,
-              width: 3,
-              height: 3,
-              left: point[0] - mapXpos,
-              top: point[1] - mapYpos,
-            }}
-          ></div>
-        );
-      });
-  });
+      filtered.push(
+        explosion.particles.map((point, pIndex) => {
+          return (
+            <div
+              key={`exparticle${index}${pIndex}`}
+              style={{
+                ...styling,
+                width: 3,
+                height: 3,
+                left: point[0] - mapXpos,
+                top: point[1] - mapYpos,
+              }}
+            ></div>
+          );
+        })
+      );
+    return filtered;
+  }, []);
 };
 
 export default Explosions;

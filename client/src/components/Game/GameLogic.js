@@ -233,7 +233,7 @@ const explosionLogic = {
 };
 
 const bulletLogic = {
-  type: { 0: { speed: 2.25, width: 7, height: 7 } },
+  type: { 0: { speed: 3.25, width: 7, height: 7 } },
   moveOB: (bullet) => {
     return {
       xPos: -bullet.width * 2,
@@ -311,28 +311,40 @@ const bulletLogic = {
 
     // METHOD 2
     // Search path of bullet center and sides
+
+    // returning full collision path with pixel log until best method is found
     let col = false;
     const onPath = () => {
-      mathLogic
-        .pixelsBetweenPoints(center, bulletLogic.calcPrevCenterPoint(bullet))
-        .map((point) => {
-          const p = [[], point, []];
-          [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
-            point,
-            bullet.theta,
-            pixelRad - 1
-          );
-          p.forEach(([x, y]) => {
-            if (objectMap.getMapPixelXY(x, y) === 1) col = true;
-            pixelLog.push([x, y]);
-            // return pixelLog;
-          });
+      let path = mathLogic.pixelsBetweenPoints(
+        center,
+        bulletLogic.calcPrevCenterPoint(bullet)
+      );
+      // if path is traveling to the left search through pixels in reverse order
+      if (bullet.theta < 280 || bullet.theta > 90) path.reverse();
+      path.forEach((point) => {
+        const p = [[], point, []];
+        [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
+          point,
+          bullet.theta,
+          pixelRad - 1
+        );
+        p.forEach(([x, y]) => {
+          if (objectMap.getMapPixelXY(x, y) === 1) {
+            // collide on side or center of bullet?
+            col =
+              objectMap.getMapPixelXY(point[0], point[1]) === 1
+                ? [point[0], point[1]]
+                : [x, y];
+          }
+          pixelLog.push([x, y]);
+          // return pixelLog;
         });
+      });
     };
 
     onPath();
     return { pixelLog, col };
-    return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
+    // return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
   },
 };
 
@@ -556,8 +568,10 @@ const GameLogic = ({
           if (collisionData.col) {
             newState.explosionArray.push({
               type: 0,
-              xPos: collisionData.pixelLog[0][0],
-              yPos: collisionData.pixelLog[0][1],
+              xPos: collisionData.col[0],
+              yPos: collisionData.col[1],
+              // xPos: collisionData[0],
+              // yPos: collisionData[1],
               step: 0,
             });
             bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
