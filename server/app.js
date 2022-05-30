@@ -26,11 +26,9 @@ app.use(function (req, res, next) {
         return next();
       }
       if (onlineUsers[decoded.id]) {
-        console.log(onlineUsers[decoded.id]);
         req.user = onlineUsers[decoded.id];
         return next();
       } else {
-        console.log('user not recognized');
         return next();
       }
     });

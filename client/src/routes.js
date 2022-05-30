@@ -26,12 +26,21 @@ const Routes = (props) => {
 
   const logout = async (id) => {
     try {
-      await axios.delete("/logout");
+      await axios.delete("/user/logout");
       await localStorage.removeItem("tanks-token");
       setUser({});
       socket.emit("logout", id);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const emitTankData = async (data) => {
+    try {
+      socket.emit("new-tank-position", data);
+    } catch (error) {
+      console.error(error);
+      setUser({ error: error.response.data.error || "Server Error" });
     }
   };
 
@@ -44,7 +53,7 @@ const Routes = (props) => {
         const { data } = await axios.get("/user");
         setUser(data);
         if (data.id) {
-          socket.emit("go-online", data.id);
+          socket.emit("go-online", data);
         }
       } catch (error) {
         console.error(error);
@@ -91,7 +100,7 @@ const Routes = (props) => {
           path="/"
           render={(props) =>
             user?.id ? (
-              <Home user={user} logout={logout} />
+              <Home user={user} logout={logout} emitTankData={emitTankData} />
             ) : (
               <Login user={user} login={login} />
             )
@@ -99,7 +108,9 @@ const Routes = (props) => {
         />
         <Route
           path="/home"
-          render={() => <Home user={user} logout={logout} />}
+          render={() => (
+            <Home user={user} logout={logout} emitTankData={emitTankData} />
+          )}
         />
       </Switch>
     </SocketContext.Provider>

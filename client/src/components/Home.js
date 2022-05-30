@@ -19,7 +19,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Home = ({ user, logout }) => {
+const Home = ({ user, logout, emitTankData }) => {
   const history = useHistory();
   const classes = useStyles();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -30,6 +30,8 @@ const Home = ({ user, logout }) => {
 
   const [readyState, setReadyState] = useState(true);
   const [inputState, setInputState] = useState({});
+
+  const [tankUpdates, setTankUpdates] = useState({});
 
   const [gameState, setGameState] = useState({
     fps: 60,
@@ -57,12 +59,6 @@ const Home = ({ user, logout }) => {
       width: 30,
       height: 22,
       id: user.id,
-      v: [
-        [0, 0],
-        [0, 0],
-        [0, 0],
-        [0, 0],
-      ],
     },
   });
 
@@ -91,11 +87,15 @@ const Home = ({ user, logout }) => {
     console.log(`${id} has logged off`);
   }, []);
 
-  const broadcastMessagesRead = (lastReadData) => {
-    socket.emit("read-message", {
-      ...lastReadData,
-    });
-  };
+  const updateTankPosition = useCallback(
+    (data) => {
+      setTankUpdates((prev) => {
+        prev[data.id] = data;
+        return { ...prev };
+      });
+    },
+    [setTankUpdates]
+  );
 
   const saveReadStatus = async (body) => {
     const data = await axios.put("/api/conversations/read", body);
@@ -135,12 +135,9 @@ const Home = ({ user, logout }) => {
 
   useEffect(() => {
     // Socket init
-
     socket.on("add-online-user", addOnlineUser);
-    /*
-    socket.on('remove-offline-user', removeOfflineUser);
-    socket.on('new-message', addMessageToConversation);
-*/
+    socket.on("remove-offline-user", removeOfflineUser);
+    socket.on("new-tank-position", updateTankPosition);
 
     // Game Clock / logic and frame limiter
     const interval = setInterval(() => {
@@ -150,20 +147,16 @@ const Home = ({ user, logout }) => {
     return () => {
       // before the component is destroyed
       // unbind all event handlers used in this component
-
       socket.off("add-online-user", addOnlineUser);
-      /*
-      socket.off('remove-offline-user', removeOfflineUser);
-      socket.off('new-message', addMessageToConversation);
-      */
+      socket.off("remove-offline-user", removeOfflineUser);
+      socket.off("new-tank-position", updateTankPosition);
+
       clearInterval(interval);
     };
   }, [
-    //addMessageToConversation,
     addOnlineUser,
-    //removeOfflineUser,
-    //updateReadStatus,
-    //addMemberToLocalConvo,
+    removeOfflineUser,
+    updateTankPosition,
     socket,
     gameState.fps,
     setReadyState,
@@ -183,7 +176,6 @@ const Home = ({ user, logout }) => {
     }
   };
 
-  //<Button onClick={handleLogout}>Logout</Button>
   return (
     <>
       {isLoading ? (
@@ -191,6 +183,7 @@ const Home = ({ user, logout }) => {
       ) : (
         <Grid container component="main" className={classes.root}>
           <CssBaseline />
+          <Button onClick={handleLogout}>Logout</Button>
           <GameLogic
             inputState={inputState}
             gameState={gameState}
@@ -200,6 +193,9 @@ const Home = ({ user, logout }) => {
             readyState={readyState}
             setReadyState={setReadyState}
             mapObjects={mapObjects}
+            emitTankData={emitTankData}
+            tankUpdates={tankUpdates}
+            setTankUpdates={setTankUpdates}
           />
           <GameView
             gameState={gameState}

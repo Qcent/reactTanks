@@ -185,6 +185,9 @@ const tankLogic = {
     }
     return bestMatch;
   },
+  sharedData: ({ id, username, health, xPos, yPos, theta }) => {
+    return { id, username, health, xPos, yPos, theta };
+  },
 };
 
 const explosionLogic = {
@@ -366,6 +369,9 @@ const GameLogic = ({
   readyState,
   setReadyState,
   mapObjects,
+  emitTankData,
+  tankUpdates,
+  setTankUpdates,
 }) => {
   // Lifecycle
 
@@ -376,8 +382,19 @@ const GameLogic = ({
       let newState = { ...gameState };
       let newTanks = { ...tankState };
       const { me } = tankState;
-      let updateMe = false;
-      let updateGame = false;
+      let updateMe = false,
+        updateGame = false,
+        updateTanks = false,
+        movementBlocked = false;
+
+      if (Object.keys(tankUpdates).length) {
+        updateTanks = true;
+        // for (const id in tankUpdates) {
+        //   newTanks[id] = tankUpdates[id];
+        // }
+        newTanks = { ...newTanks, ...tankUpdates };
+        setTankUpdates({});
+      }
 
       //handle inputs
 
@@ -847,6 +864,7 @@ const GameLogic = ({
 
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
+      else if (updateTanks) setTankState({ ...newTanks, me: tankState.me });
       if (updateGame) setGameState({ ...newState });
       else
         setGameState({
@@ -857,6 +875,7 @@ const GameLogic = ({
 
       //debugging output
       if (updateMe) {
+        emitTankData(tankLogic.sharedData(newTanks.me));
       }
       // end logic cycle
       setReadyState(false);
@@ -870,6 +889,9 @@ const GameLogic = ({
     readyState,
     setReadyState,
     mapObjects,
+    emitTankData,
+    tankUpdates,
+    setTankUpdates,
   ]);
 
   return null;

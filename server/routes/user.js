@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const jwt = require('jsonwebtoken');
-const { uuid } = require('uuidv4');
+const { v4: uuidv4 } = require('uuid');
 const onlineUsers = require('../onlineUsers');
 
 router.get('/', (req, res, next) => {
@@ -23,7 +23,7 @@ router.post('/login', async (req, res, next) => {
     const user = {
       username,
       tankType: tankChoice,
-      id: uuid(),
+      id: uuidv4(),
     };
     if (!user.id) {
       console.log({ error: `No user found for username: ${username}` });

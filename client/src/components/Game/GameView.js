@@ -46,6 +46,8 @@ const GameView = ({ gameState, tankState, mapImg, mapOverlay, mapObjects }) => {
             zIndex: 2,
           }}
           tankState={tankState}
+          mapXpos={gameState.mapXpos}
+          mapYpos={gameState.mapYpos}
         />
         <Bullets
           styling={{
