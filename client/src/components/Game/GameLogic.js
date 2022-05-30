@@ -112,6 +112,7 @@ const screenLogic = {
 };
 
 const tankLogic = {
+  type: { 0: { width: 30, height: 22, speed: 3, health: 100 } },
   moveY: (tank, amt) =>
     tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
   moveX: (tank, amt) =>
@@ -185,8 +186,28 @@ const tankLogic = {
     }
     return bestMatch;
   },
-  sharedData: ({ id, username, health, xPos, yPos, theta }) => {
-    return { id, username, health, xPos, yPos, theta };
+  sharedData: ({
+    id,
+    username,
+    tankType,
+    health,
+    xPos,
+    yPos,
+    theta,
+    ammoType,
+    fire,
+  }) => {
+    return {
+      id,
+      username,
+      tankType,
+      health,
+      xPos,
+      yPos,
+      theta,
+      ammoType,
+      fire,
+    };
   },
 };
 
@@ -245,7 +266,7 @@ const explosionLogic = {
 };
 
 const bulletLogic = {
-  type: { 0: { speed: 25, width: 7, height: 7 } },
+  type: { 0: { speed: 25, width: 7, height: 7, timeOut: 45 } },
   moveOB: (bullet) => {
     return {
       xPos: -bullet.width * 2,
@@ -385,13 +406,11 @@ const GameLogic = ({
       let updateMe = false,
         updateGame = false,
         updateTanks = false,
-        movementBlocked = false;
+        movementBlocked = false,
+        didFire = false;
 
       if (Object.keys(tankUpdates).length) {
         updateTanks = true;
-        // for (const id in tankUpdates) {
-        //   newTanks[id] = tankUpdates[id];
-        // }
         newTanks = { ...newTanks, ...tankUpdates };
         setTankUpdates({});
       }
@@ -445,9 +464,16 @@ const GameLogic = ({
       }
 
       // fire bullet
-      if (inputState[" "] && !newTanks.me.pressedFireButton) {
+
+      if (
+        !newState.fireTimeOut &&
+        inputState[" "] &&
+        !newTanks.me.pressedFireButton
+      ) {
+        console.log();
         newTanks.me.fire = true;
         newTanks.me.pressedFireButton = true;
+        didFire = true;
         updateMe = true;
       }
       if (newTanks.me.pressedFireButton && !inputState[" "]) {
@@ -582,7 +608,7 @@ const GameLogic = ({
       }
       // END OF ONSCREEN POSITION
 
-      // handle bullet firing, positions and collisons
+      // handle bullet positions and collisons
       newState.bulletArray = newState.bulletArray.reduce((filtered, bullet) => {
         if (bulletLogic.isOnScreen(bullet, newState)) {
           bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
@@ -608,6 +634,10 @@ const GameLogic = ({
         return filtered;
       }, []);
 
+      //handle bullet firing
+      if (newState.fireTimeOut) {
+        newState.fireTimeOut--;
+      }
       if (newTanks.me.fire) {
         newState.bulletArray.push({
           type: 0,
@@ -620,10 +650,32 @@ const GameLogic = ({
             newTanks.me.height / 2 -
             bulletLogic.type["0"].height / 2,
           theta: newTanks.me.theta,
-          width: bulletLogic.type["0"].width,
-          height: bulletLogic.type["0"].height,
+          width: bulletLogic.type[newTanks.me.ammoType].width,
+          height: bulletLogic.type[newTanks.me.ammoType].height,
         });
         newTanks.me.fire = false;
+        newState.fireTimeOut = bulletLogic.type[newTanks.me.ammoType].timeOut;
+      }
+
+      for (const tank in newTanks) {
+        if (tank !== "me" && newTanks[tank].fire) {
+          console.log(newTanks[tank].username, "fired a shot");
+          newTanks[tank].fire = false;
+          newState.bulletArray.push({
+            type: 0,
+            xPos:
+              newTanks[tank].xPos +
+              tankLogic.type[newTanks[tank].tankType].width / 2 -
+              bulletLogic.type[newTanks[tank].ammoType].width / 2,
+            yPos:
+              newTanks[tank].yPos +
+              tankLogic.type[newTanks[tank].tankType].height / 2 -
+              bulletLogic.type[newTanks[tank].ammoType].height / 2,
+            theta: newTanks[tank].theta,
+            width: bulletLogic.type[newTanks[tank].ammoType].width,
+            height: bulletLogic.type[newTanks[tank].ammoType].height,
+          });
+        }
       }
       // END OF BULLET POSITION/COLLISION/FIRING
 
@@ -869,13 +921,14 @@ const GameLogic = ({
       else
         setGameState({
           ...gameState,
+          fireTimeOut: newState.fireTimeOut,
           bulletArray: newState.bulletArray,
           explosionArray: newState.explosionArray,
         });
 
       //debugging output
       if (updateMe) {
-        emitTankData(tankLogic.sharedData(newTanks.me));
+        emitTankData(tankLogic.sharedData({ ...newTanks.me, fire: didFire }));
       }
       // end logic cycle
       setReadyState(false);

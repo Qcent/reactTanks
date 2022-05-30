@@ -48,17 +48,19 @@ const Home = ({ user, logout, emitTankData }) => {
   });
   const [tankState, setTankState] = useState({
     me: {
+      id: user.id,
+      username: user.username,
+      tankType: user.tankType,
+      ammoType: "0",
       health: 100,
+      speed: 3,
+      width: 30,
+      height: 22,
       xPos: 100,
       yPos: 230,
       screenX: 100,
       screenY: 230,
       theta: 0,
-      username: user.username,
-      speed: 3,
-      width: 30,
-      height: 22,
-      id: user.id,
     },
   });
 
@@ -80,12 +82,19 @@ const Home = ({ user, logout, emitTankData }) => {
   useEventListener("keyup", inputUpHandler);
 
   const addOnlineUser = useCallback((id) => {
-    console.log(`${id} users online`);
+    console.log(`${id} came online`);
   }, []);
 
-  const removeOfflineUser = useCallback((id) => {
-    console.log(`${id} has logged off`);
-  }, []);
+  const removeOfflineUser = useCallback(
+    (id) => {
+      console.log(`${id} has logged off`);
+      setTankUpdates((prev) => {
+        delete prev[id];
+        return { ...prev };
+      });
+    },
+    [setTankUpdates]
+  );
 
   const updateTankPosition = useCallback(
     (data) => {
