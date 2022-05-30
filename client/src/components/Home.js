@@ -9,9 +9,9 @@ import { GameView, GameLogic } from "./Game";
 import PixelMap from "./Game/PixelMap";
 import useEventListener from "@use-it/event-listener";
 
-import mapImg from "../map/map2-0.png";
-import mapObj from "../map/map2-1.png";
-import mapOverlay from "../map/map2-2.png";
+import mapImg from "../assets/map/map-0.png";
+import mapObj from "../assets/map/map-1.png";
+import mapOverlay from "../assets/map/map-2.png";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -52,11 +52,11 @@ const Home = ({ user, logout }) => {
       screenX: 100,
       screenY: 230,
       theta: 0,
-      username: "Tankie",
+      username: user.username,
       speed: 3,
       width: 30,
       height: 22,
-      id: 0,
+      id: user.id,
       v: [
         [0, 0],
         [0, 0],
@@ -83,18 +83,13 @@ const Home = ({ user, logout }) => {
   useEventListener("keydown", inputDownHandler);
   useEventListener("keyup", inputUpHandler);
 
-  const markMessagesRead = async (lastReadData) => {
-    try {
-      if (!lastReadData) return;
-      const data = await saveReadStatus(lastReadData);
-      if (data) {
-        // updateReadStatus(lastReadData);
-        broadcastMessagesRead(lastReadData);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const addOnlineUser = useCallback((id) => {
+    console.log(`${id} users online`);
+  }, []);
+
+  const removeOfflineUser = useCallback((id) => {
+    console.log(`${id} has logged off`);
+  }, []);
 
   const broadcastMessagesRead = (lastReadData) => {
     socket.emit("read-message", {
@@ -140,8 +135,9 @@ const Home = ({ user, logout }) => {
 
   useEffect(() => {
     // Socket init
+
+    socket.on("add-online-user", addOnlineUser);
     /*
-    socket.on('add-online-user', addOnlineUser);
     socket.on('remove-offline-user', removeOfflineUser);
     socket.on('new-message', addMessageToConversation);
 */
@@ -154,8 +150,9 @@ const Home = ({ user, logout }) => {
     return () => {
       // before the component is destroyed
       // unbind all event handlers used in this component
+
+      socket.off("add-online-user", addOnlineUser);
       /*
-      socket.off('add-online-user', addOnlineUser);
       socket.off('remove-offline-user', removeOfflineUser);
       socket.off('new-message', addMessageToConversation);
       */
@@ -163,7 +160,7 @@ const Home = ({ user, logout }) => {
     };
   }, [
     //addMessageToConversation,
-    //addOnlineUser,
+    addOnlineUser,
     //removeOfflineUser,
     //updateReadStatus,
     //addMemberToLocalConvo,
@@ -173,42 +170,12 @@ const Home = ({ user, logout }) => {
   ]);
 
   useEffect(() => {
-    // when fetching, prevent redirect
-    if (user?.isFetching) return;
-
     if (user && user.id) {
       setIsLoggedIn(true);
     } else {
-      // If we were previously logged in, redirect to login instead of register
-      if (isLoggedIn) history.push("/login");
-      else history.push("/register");
+      history.push("/login");
     }
   }, [user, history, isLoggedIn]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // const { data } = await axios.get("/api/data");
-        /* setStateData(
-          data.map((convo) => {
-            convo.myUnreadMessageCount = convo.messages.filter(
-              (message) =>
-                message.id > convo.members[`${user.id}`].lastReadMessage &&
-                message.senderId !== user.id
-            ).length;
-
-            return convo;
-          })
-        );
-        */
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    if (!user.isFetching) {
-      fetchData();
-    }
-  }, [user]);
 
   const handleLogout = async () => {
     if (user && user.id) {

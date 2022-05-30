@@ -2,37 +2,22 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Route, Switch, withRouter } from "react-router-dom";
 
-import Signup from "./Signup.js";
 import Login from "./Login.js";
 import { SnackbarError, Home } from "./components";
 import { SocketContext, socket } from "./context/socket";
 
 const Routes = (props) => {
-  const [user, setUser] = useState({
-    isFetching: true,
-  });
+  const [user, setUser] = useState({});
 
   const [errorMessage, setErrorMessage] = useState("");
   const [snackBarOpen, setSnackBarOpen] = useState(false);
 
   const login = async (credentials) => {
     try {
-      const { data } = await axios.post("/auth/login", credentials);
-      await localStorage.setItem("messenger-token", data.token);
+      const { data } = await axios.post("/login", credentials);
+      await localStorage.setItem("tanks-token", data.token);
       setUser(data);
-      socket.emit("go-online", data.id);
-    } catch (error) {
-      console.error(error);
-      setUser({ error: error.response.data.error || "Server Error" });
-    }
-  };
-
-  const register = async (credentials) => {
-    try {
-      const { data } = await axios.post("/auth/register", credentials);
-      await localStorage.setItem("messenger-token", data.token);
-      setUser(data);
-      socket.emit("go-online", data.id);
+      socket.emit("go-online", data);
     } catch (error) {
       console.error(error);
       setUser({ error: error.response.data.error || "Server Error" });
@@ -42,7 +27,7 @@ const Routes = (props) => {
   const logout = async (id) => {
     try {
       await axios.delete("/auth/logout");
-      await localStorage.removeItem("messenger-token");
+      await localStorage.removeItem("tanks-token");
       setUser({});
       socket.emit("logout", id);
     } catch (error) {
@@ -51,25 +36,6 @@ const Routes = (props) => {
   };
 
   // Lifecycle
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      setUser((prev) => ({ ...prev, isFetching: true }));
-      try {
-        const { data } = await axios.get("/auth/user");
-        setUser(data);
-        if (data.id) {
-          socket.emit("go-online", data.id);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setUser((prev) => ({ ...prev, isFetching: false }));
-      }
-    };
-
-    fetchUser();
-  }, []);
 
   useEffect(() => {
     if (user?.error) {
@@ -83,10 +49,6 @@ const Routes = (props) => {
     }
   }, [user?.error]);
 
-  if (user?.isFetching) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <SocketContext.Provider value={socket}>
       {snackBarOpen && (
@@ -97,16 +59,17 @@ const Routes = (props) => {
         />
       )}
       <Switch>
+        <Route
+          path="/login"
+          render={() => <Login user={user} login={login} />}
+        />
         <Route path="/" render={() => <Home user={user} logout={logout} />} />
       </Switch>
     </SocketContext.Provider>
   );
 };
 /*
- <Route
-          path="/login"
-          render={() => <Login user={user} login={login} />}
-        />
+ 
         <Route
           path="/register"
           render={() => <Signup user={user} register={register} />}
