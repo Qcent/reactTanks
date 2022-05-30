@@ -7,14 +7,14 @@ import { SnackbarError, Home } from "./components";
 import { SocketContext, socket } from "./context/socket";
 
 const Routes = (props) => {
-  const [user, setUser] = useState({});
+  const [user, setUser] = useState({ isFetching: true });
 
   const [errorMessage, setErrorMessage] = useState("");
   const [snackBarOpen, setSnackBarOpen] = useState(false);
 
   const login = async (credentials) => {
     try {
-      const { data } = await axios.post("/login", credentials);
+      const { data } = await axios.post("/user/login", credentials);
       await localStorage.setItem("tanks-token", data.token);
       setUser(data);
       socket.emit("go-online", data);
@@ -26,7 +26,7 @@ const Routes = (props) => {
 
   const logout = async (id) => {
     try {
-      await axios.delete("/auth/logout");
+      await axios.delete("/logout");
       await localStorage.removeItem("tanks-token");
       setUser({});
       socket.emit("logout", id);
@@ -36,6 +36,25 @@ const Routes = (props) => {
   };
 
   // Lifecycle
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      setUser((prev) => ({ ...prev, isFetching: true }));
+      try {
+        const { data } = await axios.get("/user");
+        setUser(data);
+        if (data.id) {
+          socket.emit("go-online", data.id);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setUser((prev) => ({ ...prev, isFetching: false }));
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     if (user?.error) {
@@ -48,6 +67,10 @@ const Routes = (props) => {
       setSnackBarOpen(true);
     }
   }, [user?.error]);
+
+  if (user?.isFetching) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <SocketContext.Provider value={socket}>
@@ -63,17 +86,6 @@ const Routes = (props) => {
           path="/login"
           render={() => <Login user={user} login={login} />}
         />
-        <Route path="/" render={() => <Home user={user} logout={logout} />} />
-      </Switch>
-    </SocketContext.Provider>
-  );
-};
-/*
- 
-        <Route
-          path="/register"
-          render={() => <Signup user={user} register={register} />}
-        />
         <Route
           exact
           path="/"
@@ -81,10 +93,17 @@ const Routes = (props) => {
             user?.id ? (
               <Home user={user} logout={logout} />
             ) : (
-              <Signup user={user} register={register} />
+              <Login user={user} login={login} />
             )
           }
         />
-*/
+        <Route
+          path="/home"
+          render={() => <Home user={user} logout={logout} />}
+        />
+      </Switch>
+    </SocketContext.Provider>
+  );
+};
 
 export default withRouter(Routes);

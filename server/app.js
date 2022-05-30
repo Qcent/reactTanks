@@ -39,9 +39,8 @@ app.use(function (req, res, next) {
   }
 });
 
-// require api ro utes
-app.use('/', require('./routes/login'));
-//app.use('/api', require('./routes/api'));
+// require api routes
+app.use('/', require('./routes'));
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

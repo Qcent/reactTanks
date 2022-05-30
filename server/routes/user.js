@@ -1,11 +1,19 @@
 const router = require('express').Router();
 const jwt = require('jsonwebtoken');
+const { uuid } = require('uuidv4');
 const onlineUsers = require('../onlineUsers');
+
+router.get('/', (req, res, next) => {
+  if (req.user) {
+    return res.json(req.user);
+  } else {
+    return res.json({});
+  }
+});
 
 router.post('/login', async (req, res, next) => {
   try {
     const { username, tankChoice } = req.body;
-    console.log(req.body);
     if (!username || !tankChoice)
       return res
         .status(400)
@@ -15,9 +23,8 @@ router.post('/login', async (req, res, next) => {
     const user = {
       username,
       tankType: tankChoice,
-      id: Object.keys(onlineUsers).length.toString(),
+      id: uuid(),
     };
-    console.log(user);
     if (!user.id) {
       console.log({ error: `No user found for username: ${username}` });
       res.status(401).json({ error: 'Wrong username and/or password' });
