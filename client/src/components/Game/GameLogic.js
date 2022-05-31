@@ -70,6 +70,8 @@ const mathLogic = {
 
     return pixels;
   },
+  isRightOfPath: (v1, v2, p) =>
+    (p[1] - v1[1]) * (v2[0] - v1[0]) - (p[0] - v1[0]) * (v2[1] - v1[1]) >= 0,
 };
 
 const screenLogic = {
@@ -196,6 +198,7 @@ const tankLogic = {
     theta,
     ammoType,
     fire,
+    hitBy,
   }) => {
     return {
       id,
@@ -207,6 +210,7 @@ const tankLogic = {
       theta,
       ammoType,
       fire,
+      hitBy,
     };
   },
 };
@@ -294,7 +298,7 @@ const bulletLogic = {
       Math.floor(bulletLogic.type[bullet.type].width / 2) -
       Math.sin(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
   ],
-  isOnScreen: (bullet, gameState) => {
+  isOnMap: (bullet, gameState) => {
     const { xPos, yPos, type } = bullet;
     if (typeof type !== "number") return false;
     if (
@@ -372,6 +376,59 @@ const bulletLogic = {
           pixelLog.push([x, y]);
           // return pixelLog;
         });
+      });
+    };
+
+    onPath();
+    return { pixelLog, col };
+    // return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
+  },
+
+  collidedWithPolygon: (bullet, edges) => {
+    const smallMeasure = bullet.width < bullet.height ? "width" : "height";
+    const radius = bullet[smallMeasure] / 2,
+      center = [
+        bullet.xPos + Math.floor(bullet.height / 2),
+        bullet.yPos + Math.floor(bullet.width / 2),
+      ],
+      //pixelCount = bullet[smallMeasure] * bullet[smallMeasure],
+      pixelRad = Math.ceil(radius);
+
+    let pixelLog = [];
+
+    // Search path of bullet center and sides
+    let col = false;
+    const onPath = () => {
+      let path = mathLogic.pixelsBetweenPoints(
+        center,
+        bulletLogic.calcPrevCenterPoint(bullet)
+      );
+      // if path is traveling to the left search through pixels in reverse order
+      if (bullet.theta < 280 || bullet.theta > 90) path.reverse();
+      path.forEach((point) => {
+        if (!col) {
+          const p = [[], point, []];
+          [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
+            point,
+            bullet.theta,
+            pixelRad - 1
+          );
+
+          p.forEach(([x, y]) => {
+            if (!col) {
+              let inside = true;
+              edges.forEach(([v1, v2]) => {
+                const val = mathLogic.isRightOfPath(v1, v2, [x, y]);
+
+                if (!val) inside = false;
+              });
+              if (inside) {
+                col = true;
+                pixelLog.push([x, y]);
+              }
+            }
+          });
+        }
       });
     };
 
@@ -470,7 +527,6 @@ const GameLogic = ({
         inputState[" "] &&
         !newTanks.me.pressedFireButton
       ) {
-        console.log();
         newTanks.me.fire = true;
         newTanks.me.pressedFireButton = true;
         didFire = true;
@@ -607,87 +663,9 @@ const GameLogic = ({
         //end of battle mode
       }
       // END OF ONSCREEN POSITION
-
-      // handle bullet positions and collisons
-      newState.bulletArray = newState.bulletArray.reduce((filtered, bullet) => {
-        if (bulletLogic.isOnScreen(bullet, newState)) {
-          bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
-          const collisionData = bulletLogic.collidedWithMapObject(
-            bullet,
-            mapObjects
-          );
-          newTanks.me.colLine = collisionData.pixelLog;
-          if (collisionData.col) {
-            newState.explosionArray.push({
-              type: 0,
-              xPos: collisionData.col[0],
-              yPos: collisionData.col[1],
-              // xPos: collisionData[0],
-              // yPos: collisionData[1],
-              step: 0,
-              duration: explosionLogic.type["0"].duration,
-            });
-            bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
-          }
-          filtered.push(bullet);
-        }
-        return filtered;
-      }, []);
-
-      //handle bullet firing
-      if (newState.fireTimeOut) {
-        newState.fireTimeOut--;
-      }
-      if (newTanks.me.fire) {
-        newState.bulletArray.push({
-          type: 0,
-          xPos:
-            newTanks.me.xPos +
-            newTanks.me.width / 2 -
-            bulletLogic.type["0"].width / 2,
-          yPos:
-            newTanks.me.yPos +
-            newTanks.me.height / 2 -
-            bulletLogic.type["0"].height / 2,
-          theta: newTanks.me.theta,
-          width: bulletLogic.type[newTanks.me.ammoType].width,
-          height: bulletLogic.type[newTanks.me.ammoType].height,
-        });
-        newTanks.me.fire = false;
-        newState.fireTimeOut = bulletLogic.type[newTanks.me.ammoType].timeOut;
-      }
-
-      for (const tank in newTanks) {
-        if (tank !== "me" && newTanks[tank].fire) {
-          console.log(newTanks[tank].username, "fired a shot");
-          newTanks[tank].fire = false;
-          newState.bulletArray.push({
-            type: 0,
-            xPos:
-              newTanks[tank].xPos +
-              tankLogic.type[newTanks[tank].tankType].width / 2 -
-              bulletLogic.type[newTanks[tank].ammoType].width / 2,
-            yPos:
-              newTanks[tank].yPos +
-              tankLogic.type[newTanks[tank].tankType].height / 2 -
-              bulletLogic.type[newTanks[tank].ammoType].height / 2,
-            theta: newTanks[tank].theta,
-            width: bulletLogic.type[newTanks[tank].ammoType].width,
-            height: bulletLogic.type[newTanks[tank].ammoType].height,
-          });
-        }
-      }
-      // END OF BULLET POSITION/COLLISION/FIRING
-
-      // handle explosion animation / destruction
-      newState.explosionArray = explosionLogic.arrayReducer(
-        newState.explosionArray
-      );
-      // END OF EXPLOSION ANIMATION/DESTRUCTION
-
-      //collision detection
+      // tank collision detection
+      const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
       if (updateMe) {
-        const v = tankLogic.getVerticesMapCoOrds(newTanks.me);
         const [left, front, right, back] = [
           mathLogic.pixelsBetweenPoints(v[0], v[1]),
           mathLogic.pixelsBetweenPoints(v[1], v[2]),
@@ -913,6 +891,147 @@ const GameLogic = ({
           updateMe = updateGame = false;
         }
       }
+      // END OF TANK COLLISION DETECTION
+
+      // handle bullet positions and collisons
+      let hitBy = false;
+      newState.bulletArray = newState.bulletArray.reduce((filtered, bullet) => {
+        if (bulletLogic.isOnMap(bullet, newState)) {
+          bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
+          const collisionData = bulletLogic.collidedWithMapObject(
+            bullet,
+            mapObjects
+          );
+          const tankCollisionData =
+            bullet.owner !== me.id
+              ? bulletLogic.collidedWithPolygon(bullet, [
+                  [v[0], v[1]],
+                  [v[1], v[2]],
+                  [v[2], v[3]],
+                  [v[3], v[0]],
+                ])
+              : {};
+          // if (tankCollisionData.pixelLog.length) {
+          //   newTanks.me.colLine = tankCollisionData.pixelLog;
+          // }
+          if (collisionData.col) {
+            newState.explosionArray.push({
+              type: 0,
+              xPos: collisionData.col[0],
+              yPos: collisionData.col[1],
+              // xPos: collisionData[0],
+              // yPos: collisionData[1],
+              step: 0,
+              duration: explosionLogic.type["0"].duration,
+            });
+            bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
+          }
+          if (tankCollisionData.col) {
+            updateMe = true;
+            hitBy = {
+              owner: bullet.owner,
+              id: bullet.id,
+              point: [
+                tankCollisionData.pixelLog[0][0],
+                tankCollisionData.pixelLog[0][1],
+              ],
+            };
+            newState.explosionArray.push({
+              type: 0,
+              xPos: tankCollisionData.pixelLog[0][0],
+              yPos: tankCollisionData.pixelLog[0][1],
+              step: 0,
+              duration: explosionLogic.type["0"].duration,
+            });
+            bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
+          }
+          filtered.push(bullet);
+        }
+        return filtered;
+      }, []);
+
+      //handle bullet firing
+      if (newState.fireTimeOut) {
+        newState.fireTimeOut--;
+      }
+      if (newTanks.me.fire) {
+        newState.shotsFired ? newState.shotsFired++ : (newState.shotsFired = 1);
+        newState.bulletArray.push({
+          type: 0,
+          owner: me.id,
+          id: newState.shotsFired,
+          xPos:
+            newTanks.me.xPos +
+            newTanks.me.width / 2 -
+            bulletLogic.type["0"].width / 2,
+          yPos:
+            newTanks.me.yPos +
+            newTanks.me.height / 2 -
+            bulletLogic.type["0"].height / 2,
+          theta: newTanks.me.theta,
+          width: bulletLogic.type[newTanks.me.ammoType].width,
+          height: bulletLogic.type[newTanks.me.ammoType].height,
+        });
+        newTanks.me.fire = false;
+        newState.fireTimeOut = bulletLogic.type[newTanks.me.ammoType].timeOut;
+      }
+
+      // loop through other tanks for firing and hits
+      for (const tank in newTanks) {
+        if (tank !== "me") {
+          if (newTanks[tank].fire) {
+            console.log(newTanks[tank].username, "fired a shot");
+            const id = newTanks[tank].fire;
+            newTanks[tank].fire = false;
+            newState.bulletArray.push({
+              type: 0,
+              owner: tank,
+              id,
+              xPos:
+                newTanks[tank].xPos +
+                tankLogic.type[newTanks[tank].tankType].width / 2 -
+                bulletLogic.type[newTanks[tank].ammoType].width / 2,
+              yPos:
+                newTanks[tank].yPos +
+                tankLogic.type[newTanks[tank].tankType].height / 2 -
+                bulletLogic.type[newTanks[tank].ammoType].height / 2,
+              theta: newTanks[tank].theta,
+              width: bulletLogic.type[newTanks[tank].ammoType].width,
+              height: bulletLogic.type[newTanks[tank].ammoType].height,
+            });
+          }
+
+          if (newTanks[tank].hitBy) {
+            const { owner, id, point } = newTanks[tank].hitBy;
+            // const name = owner === me.id ? me.username : newTanks[owner].username;
+            //console.log( `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}`);
+            const index = newState.bulletArray.findIndex(
+              (bullet) => bullet.owner === owner && bullet.id === id
+            );
+
+            newState.explosionArray.push({
+              type: 0,
+              xPos: point[0],
+              yPos: point[1],
+              step: 0,
+              duration: explosionLogic.type["0"].duration,
+            });
+            newState.bulletArray[index] = {
+              ...newState.bulletArray[index],
+              ...bulletLogic.moveOB(newState.bulletArray[index]),
+            };
+
+            newTanks[tank].hitBy = false;
+          }
+        }
+      }
+      // END OF BULLET POSITION/COLLISION/FIRING
+
+      // handle explosion animation / destruction
+      newState.explosionArray = explosionLogic.arrayReducer(
+        newState.explosionArray
+      );
+      // END OF EXPLOSION ANIMATION/DESTRUCTION
 
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
@@ -921,6 +1040,7 @@ const GameLogic = ({
       else
         setGameState({
           ...gameState,
+          shotsFired: newState.shotsFired,
           fireTimeOut: newState.fireTimeOut,
           bulletArray: newState.bulletArray,
           explosionArray: newState.explosionArray,
@@ -928,7 +1048,13 @@ const GameLogic = ({
 
       //debugging output
       if (updateMe) {
-        emitTankData(tankLogic.sharedData({ ...newTanks.me, fire: didFire }));
+        emitTankData(
+          tankLogic.sharedData({
+            ...newTanks.me,
+            fire: didFire ? newState.shotsFired : didFire,
+            hitBy,
+          })
+        );
       }
       // end logic cycle
       setReadyState(false);
