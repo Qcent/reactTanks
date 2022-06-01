@@ -4,8 +4,16 @@ const { v4: uuidv4 } = require('uuid');
 const onlineUsers = require('../onlineUsers');
 
 router.get('/', (req, res, next) => {
-  if (req.user) {
-    return res.json(req.user);
+  if (req.user?.id) {
+    return res.json(onlineUsers[req.user.id]);
+  } else {
+    return res.json({});
+  }
+});
+
+router.get('/players', (req, res, next) => {
+  if (req.user?.id) {
+    return res.json(onlineUsers);
   } else {
     return res.json({});
   }

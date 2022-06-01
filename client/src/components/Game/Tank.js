@@ -16,7 +16,7 @@ const Tank = ({ styling, tankState, mapXpos, mapYpos }) => {
     if (tank !== "me") {
       otherTanks.push(
         <div
-          key={tankState[tank].id}
+          key={tank}
           style={{
             ...styling,
             backgroundColor: "green",

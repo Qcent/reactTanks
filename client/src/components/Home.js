@@ -19,7 +19,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Home = ({ user, logout, emitTankData }) => {
+const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
   const history = useHistory();
   const classes = useStyles();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -51,16 +51,16 @@ const Home = ({ user, logout, emitTankData }) => {
       id: user.id,
       username: user.username,
       tankType: user.tankType,
-      ammoType: "0",
-      health: 100,
+      ammoType: user.ammoType || "0",
+      health: user.health || 100,
       speed: 3,
       width: 30,
       height: 22,
-      xPos: 100,
-      yPos: 230,
+      xPos: user.xPos || 100,
+      yPos: user.yPos || 230,
       screenX: 100,
       screenY: 230,
-      theta: 0,
+      theta: user.theta || 0,
     },
   });
 
@@ -81,14 +81,21 @@ const Home = ({ user, logout, emitTankData }) => {
   useEventListener("keydown", inputDownHandler);
   useEventListener("keyup", inputUpHandler);
 
-  const addOnlineUser = useCallback((id) => {
-    console.log(`${id} came online`);
-  }, []);
+  const addOnlineUser = useCallback(
+    (data) => {
+      console.log(`${data.username} came online`);
+      // const { id } = user;
+      // setTankUpdates((prev) => {
+      //   return { ...prev, id: { ...user } };
+      // });
+    },
+    [setTankUpdates]
+  );
 
   const removeOfflineUser = useCallback(
     (id) => {
       console.log(`${id} has logged off`);
-      setTankUpdates((prev) => {
+      setTankState((prev) => {
         delete prev[id];
         return { ...prev };
       });
@@ -138,9 +145,15 @@ const Home = ({ user, logout, emitTankData }) => {
 
   useEffect(() => {
     const imgs = [mapImg, mapObj, mapOverlay];
-
     cacheImages(imgs);
   }, [cacheImages]);
+
+  useEffect(() => {
+    (async () => {
+      const data = await fetchPlayers();
+      setTankUpdates(data);
+    })();
+  }, [setTankUpdates, fetchPlayers]);
 
   useEffect(() => {
     // Socket init

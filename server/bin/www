@@ -41,11 +41,12 @@ io.on('connection', (socket) => {
       };
     }
     // send the user who just went online to everyone else who is already online
-    socket.broadcast.emit('add-online-user', user.id);
+    socket.broadcast.emit('add-online-user', user);
   });
 
   socket.on('new-tank-position', (data) => {
     socket.broadcast.emit('new-tank-position', { ...data });
+    onlineUsers[data.id] = { ...onlineUsers[data.id], ...data };
   });
 
   socket.on('logout', (id) => {

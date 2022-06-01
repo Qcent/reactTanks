@@ -44,6 +44,20 @@ const Routes = (props) => {
     }
   };
 
+  const fetchPlayers = async () => {
+    try {
+      const { data } = await axios.get("/user/players");
+      const me = data[user.id];
+
+      if (me?.id) {
+        delete data[user.id];
+        return data;
+      } else throw "user not found in server data";
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   // Lifecycle
 
   useEffect(() => {
@@ -100,7 +114,12 @@ const Routes = (props) => {
           path="/"
           render={(props) =>
             user?.id ? (
-              <Home user={user} logout={logout} emitTankData={emitTankData} />
+              <Home
+                user={user}
+                logout={logout}
+                emitTankData={emitTankData}
+                fetchPlayers={fetchPlayers}
+              />
             ) : (
               <Login user={user} login={login} />
             )
@@ -109,7 +128,12 @@ const Routes = (props) => {
         <Route
           path="/home"
           render={() => (
-            <Home user={user} logout={logout} emitTankData={emitTankData} />
+            <Home
+              user={user}
+              logout={logout}
+              emitTankData={emitTankData}
+              fetchPlayers={fetchPlayers}
+            />
           )}
         />
       </Switch>
