@@ -1,442 +1,13 @@
 import { useEffect } from "react";
 
-const RADS = Math.PI / 180;
-
 // logic helpers
-
-const mathLogic = {
-  findLength: (x, y) => Math.sqrt(x * x + y * y),
-  slopeToAngle: (slope) => Math.atan(slope) / RADS,
-  rotateVirtex: (x, y, theta) => [
-    x * Math.cos(theta * RADS) - y * Math.sin(theta * RADS),
-    y * Math.cos(theta * RADS) + x * Math.sin(theta * RADS),
-  ],
-  translateVirtex: (point, newOrigin) => [
-    (point[0] += newOrigin[0]),
-    (point[1] += newOrigin[1]),
-  ],
-  differenceBetweenPoints: (p1, p2) => [
-    Math.abs(p1[0] - p2[0]),
-    Math.abs(p1[1] - p2[1]),
-  ],
-  aggregateDiffBetweenPoints: (p1, p2) =>
-    Math.abs(p1[0] - p2[0]) + Math.abs(p1[1] - p2[1]),
-  getRelativePerpendicularCoOrd: (point, theta, dist) => {
-    theta += 90;
-    const [x, y] = [
-      Math.floor(Math.cos(theta * RADS) * dist),
-      Math.floor(Math.sin(theta * RADS) * dist),
-    ];
-
-    return [
-      [point[0] + x, point[1] + y],
-      [point[0] - x, point[1] - y],
-    ];
-  },
-  pixelsBetweenPoints: (p1, p2) => {
-    const slope = (p1[1] - p2[1]) / (p1[0] - p2[0]),
-      length = mathLogic.findLength(
-        Math.abs(p1[0] - p2[0]),
-        Math.abs(p1[1] - p2[1])
-      ),
-      yLength = Math.abs(p1[1] - p2[1]);
-
-    let pixels = [];
-    const [startX, startY, endX] =
-        p1[0] < p2[0]
-          ? [Math.round(p1[0]), Math.round(p1[1]), Math.round(p2[0])]
-          : [Math.round(p2[0]), Math.round(p2[1]), Math.round(p1[0])],
-      highY = p1[1] < p2[1] ? Math.round(p1[1]) : Math.round(p2[1]);
-    const dataPoints = endX - startX,
-      minDataPoints = Math.ceil(length / 4),
-      extraPoints = minDataPoints - dataPoints,
-      xOffset = dataPoints / minDataPoints,
-      extraValue = yLength / minDataPoints;
-
-    if (extraPoints > 0) {
-      for (let i = 0; i < minDataPoints; i++) {
-        pixels.push([
-          startX + Math.floor(i * xOffset),
-          startY === highY
-            ? startY + Math.round(extraValue * i)
-            : startY - Math.round(extraValue * i),
-        ]);
-      }
-    } else {
-      for (let i = 0; i < endX - startX; i++) {
-        pixels.push([startX + i, startY + Math.round(slope * i)]);
-      }
-    }
-
-    return pixels;
-  },
-  isRightOfPath: (v1, v2, p) =>
-    (p[1] - v1[1]) * (v2[0] - v1[0]) - (p[0] - v1[0]) * (v2[1] - v1[1]) >= 0,
-};
-
-const screenLogic = {
-  moveY: (amt, mapYpos) => {
-    return { mapYpos: mapYpos + amt };
-  },
-  moveX: (amt, mapXpos) => {
-    return { mapXpos: mapXpos + amt };
-  },
-  moveAtAngle: ({ mapXpos, mapYpos, theta }, pos = 1, speed = 1, gameState) => {
-    return screenLogic.coordLimitCheck(
-      {
-        mapXpos: mapXpos + Math.cos(theta * RADS) * speed * pos,
-        mapYpos: mapYpos + Math.sin(theta * RADS) * speed * pos,
-      },
-      gameState
-    );
-  },
-  coordLimitCheck: ({ mapXpos, mapYpos }, gameState) => {
-    let [xDrift, yDrift] = [0, 0];
-
-    if (mapXpos > gameState.mapWidth - gameState.viewPortWidth) {
-      xDrift = mapXpos - (gameState.mapWidth - gameState.viewPortWidth);
-      mapXpos = gameState.mapWidth - gameState.viewPortWidth;
-    }
-    if (mapXpos < 0) {
-      xDrift = mapXpos;
-      mapXpos = 0;
-    }
-    if (mapYpos > gameState.mapHeight - gameState.viewPortHeight) {
-      yDrift = mapYpos - (gameState.mapHeight - gameState.viewPortHeight);
-      mapYpos = gameState.mapHeight - gameState.viewPortHeight;
-    }
-    if (mapYpos < 0) {
-      yDrift = mapYpos;
-      mapYpos = 0;
-    }
-    return { mapXpos, mapYpos, drift: { x: xDrift, y: yDrift } };
-  },
-};
-
-const tankLogic = {
-  type: { 0: { width: 30, height: 22, speed: 3, health: 100 } },
-  moveY: (tank, amt) =>
-    tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
-  moveX: (tank, amt) =>
-    tankLogic.coordLimitCheck(tank, { xPos: tank.xPos + amt }),
-  rotate: (tank, pos = 1, amt = tank.speed * 1.5) =>
-    tankLogic.rotateLimiter(tank.theta + amt * pos),
-  rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
-  moveAtAngle: (tank, gameState, pos = 1, amt = tank.speed) => {
-    return tankLogic.coordLimitCheck(
-      tank,
-      {
-        xPos: tank.xPos + Math.cos(tank.theta * RADS) * amt * pos,
-        yPos: tank.yPos + Math.sin(tank.theta * RADS) * amt * pos,
-      },
-      gameState
-    );
-  },
-  coordLimitCheck: (tank, { xPos, yPos }, gameState) => {
-    if (xPos) {
-      if (xPos > gameState.mapWidth - tank.width) {
-        xPos = gameState.mapWidth - tank.width;
-      }
-      if (xPos < 0) {
-        xPos = 0;
-      }
-    }
-    if (yPos) {
-      if (yPos > gameState.mapHeight - tank.height) {
-        yPos = gameState.mapHeight - tank.height;
-      }
-      if (yPos < 0) {
-        yPos = 0;
-      }
-    }
-    return { xPos, yPos };
-  },
-  getVerticesMapCoOrds: (tank) => {
-    // x,y of center of tank on map
-    const mapCenter = [tank.xPos + tank.width / 2, tank.yPos + tank.height / 2];
-
-    //calc vertices of tank rotated at theta and placed at origin of mapCenter
-    const v1 = mathLogic.translateVirtex(
-        mathLogic.rotateVirtex(-tank.width / 2, -tank.height / 2, tank.theta),
-        mapCenter
-      ),
-      v2 = mathLogic.translateVirtex(
-        mathLogic.rotateVirtex(tank.width / 2, -tank.height / 2, tank.theta),
-        mapCenter
-      ),
-      v3 = mathLogic.translateVirtex(
-        mathLogic.rotateVirtex(tank.width / 2, tank.height / 2, tank.theta),
-        mapCenter
-      ),
-      v4 = mathLogic.translateVirtex(
-        mathLogic.rotateVirtex(-tank.width / 2, tank.height / 2, tank.theta),
-        mapCenter
-      );
-
-    return [v1, v2, v3, v4];
-  },
-  findNearestVertex: (tank, point, vertices) => {
-    let diff = 0,
-      bestMatch = -1;
-    for (let i = 0; i < vertices.length; i++) {
-      diff = mathLogic.aggregateDiffBetweenPoints(point, vertices[i]);
-      if (i === 0 || diff < bestMatch) {
-        bestMatch = i;
-      }
-      // conditions that returns if diff is less then some small number meaning it could be no other point
-      if (diff < tank.width / 6) return i;
-    }
-    return bestMatch;
-  },
-  sharedData: ({
-    id,
-    username,
-    tankType,
-    health,
-    xPos,
-    yPos,
-    theta,
-    ammoType,
-    fire,
-    hitBy,
-  }) => {
-    return {
-      id,
-      username,
-      tankType,
-      health,
-      xPos,
-      yPos,
-      theta,
-      ammoType,
-      fire,
-      hitBy,
-    };
-  },
-};
-
-const explosionLogic = {
-  type: { 0: { duration: 35, size: 26 } },
-  arrayReducer: (explosions) =>
-    explosions.reduce((filtered, explosion) => {
-      if (explosion.step < explosionLogic.type[explosion.type].duration) {
-        filtered.push({
-          ...explosion,
-          step: explosion.step + 1,
-          particles: explosionLogic.getAnimatedParticles(explosion),
-        });
-      }
-      return filtered;
-    }, []),
-  getAnimatedParticles: (exp) => {
-    const { xPos, yPos, step } = exp;
-    const { size, duration } = explosionLogic.type[exp.type];
-    const spinFactor = 6.9;
-    // use a parabola to get size values
-    // (x+a)(x+b)=y
-    const peak = (duration / 2) * (duration / 2 - duration - 1),
-      calcSize =
-        (step + 0) * // (x+a)
-        (step - duration - 1) * // (x+b)
-        (((size / duration) * duration) / peak); // lower max value to size
-
-    if (step > duration) return;
-    let pointMap = [];
-    pointMap.push(
-      ...mathLogic.pixelsBetweenPoints(
-        mathLogic.translateVirtex(
-          mathLogic.rotateVirtex(-calcSize, 0, step * spinFactor),
-          [xPos, yPos]
-        ),
-        mathLogic.translateVirtex(
-          mathLogic.rotateVirtex(calcSize, 0, step * spinFactor),
-          [xPos, yPos]
-        )
-      ),
-
-      ...mathLogic.pixelsBetweenPoints(
-        mathLogic.translateVirtex(
-          mathLogic.rotateVirtex(0, -calcSize, step * spinFactor),
-          [xPos, yPos]
-        ),
-        mathLogic.translateVirtex(
-          mathLogic.rotateVirtex(0, calcSize, step * spinFactor),
-          [xPos, yPos]
-        )
-      )
-    );
-    return pointMap;
-  },
-};
-
-const bulletLogic = {
-  type: { 0: { speed: 25, width: 7, height: 7, timeOut: 45 } },
-  moveOB: (bullet) => {
-    return {
-      xPos: -bullet.width * 2,
-      yPos: -bullet.height * 2,
-    };
-  },
-  rotate: (bullet, pos = 1, amt = 1.5) =>
-    bulletLogic.rotateLimiter(bullet.theta + amt * pos),
-  rotateLimiter: (theta) => (theta > 0 ? theta % 360 : (theta + 360) % 360),
-  moveAtAngle: (bullet) => {
-    return {
-      xPos:
-        bullet.xPos +
-        Math.cos(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
-      yPos:
-        bullet.yPos +
-        Math.sin(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
-    };
-  },
-  calcPrevCenterPoint: (bullet) => [
-    bullet.xPos +
-      Math.floor(bulletLogic.type[bullet.type].width / 2) -
-      Math.cos(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
-    bullet.yPos +
-      Math.floor(bulletLogic.type[bullet.type].width / 2) -
-      Math.sin(bullet.theta * RADS) * bulletLogic.type[bullet.type].speed,
-  ],
-  isOnMap: (bullet, gameState) => {
-    const { xPos, yPos, type } = bullet;
-    if (typeof type !== "number") return false;
-    if (
-      xPos > gameState.mapWidth + bulletLogic.type[type].width ||
-      xPos < -bulletLogic.type[type].width
-    ) {
-      return false;
-    }
-
-    if (
-      yPos > gameState.mapHeight + bulletLogic.type[type].height ||
-      yPos < -bulletLogic.type[type].height
-    ) {
-      return false;
-    }
-
-    return true;
-  },
-  collidedWithMapObject: (bullet, objectMap) => {
-    const smallMeasure = bullet.width < bullet.height ? "width" : "height";
-    const radius = bullet[smallMeasure] / 2,
-      center = [
-        bullet.xPos + Math.floor(bullet.height / 2),
-        bullet.yPos + Math.floor(bullet.width / 2),
-      ],
-      pixelCount = bullet[smallMeasure] * bullet[smallMeasure],
-      pixelRad = Math.ceil(radius);
-
-    let pixelLog = [];
-    // METHOD 1
-    // Search bounding square of bullet
-    const onBullet = () => {
-      let x = Math.round(bullet.xPos),
-        y = Math.round(bullet.yPos - 1);
-      for (let i = 0; i < pixelCount; i++) {
-        //if pixel is within the radius of impact "circle"
-        if (mathLogic.aggregateDiffBetweenPoints(center, [x, y]) < pixelRad) {
-          if (objectMap.getMapPixelXY(x, y) === 1) pixelLog.push([x, y]);
-        }
-        x++;
-        if (i && (i - 1) % bulletLogic.type[bullet.type].width === 0) {
-          y++;
-          x = Math.round(bullet.xPos);
-        }
-      }
-    };
-
-    // METHOD 2
-    // Search path of bullet center and sides
-
-    // returning full collision path with pixel log until best method is found
-    let col = false;
-    const onPath = () => {
-      let path = mathLogic.pixelsBetweenPoints(
-        center,
-        bulletLogic.calcPrevCenterPoint(bullet)
-      );
-      // if path is traveling to the left search through pixels in reverse order
-      if (bullet.theta < 280 || bullet.theta > 90) path.reverse();
-      path.forEach((point) => {
-        const p = [[], point, []];
-        [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
-          point,
-          bullet.theta,
-          pixelRad - 1
-        );
-        p.forEach(([x, y]) => {
-          if (objectMap.getMapPixelXY(x, y) === 1) {
-            // collide on side or center of bullet?
-            col =
-              objectMap.getMapPixelXY(point[0], point[1]) === 1
-                ? [point[0], point[1]]
-                : [x, y];
-          }
-          pixelLog.push([x, y]);
-          // return pixelLog;
-        });
-      });
-    };
-
-    onPath();
-    return { pixelLog, col };
-    // return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
-  },
-
-  collidedWithPolygon: (bullet, edges) => {
-    const smallMeasure = bullet.width < bullet.height ? "width" : "height";
-    const radius = bullet[smallMeasure] / 2,
-      center = [
-        bullet.xPos + Math.floor(bullet.height / 2),
-        bullet.yPos + Math.floor(bullet.width / 2),
-      ],
-      //pixelCount = bullet[smallMeasure] * bullet[smallMeasure],
-      pixelRad = Math.ceil(radius);
-
-    let pixelLog = [];
-
-    // Search path of bullet center and sides
-    let col = false;
-    const onPath = () => {
-      let path = mathLogic.pixelsBetweenPoints(
-        center,
-        bulletLogic.calcPrevCenterPoint(bullet)
-      );
-      // if path is traveling to the left search through pixels in reverse order
-      if (bullet.theta < 280 || bullet.theta > 90) path.reverse();
-      path.forEach((point) => {
-        if (!col) {
-          const p = [[], point, []];
-          [p[0], p[2]] = mathLogic.getRelativePerpendicularCoOrd(
-            point,
-            bullet.theta,
-            pixelRad - 1
-          );
-
-          p.forEach(([x, y]) => {
-            if (!col) {
-              let inside = true;
-              edges.forEach(([v1, v2]) => {
-                const val = mathLogic.isRightOfPath(v1, v2, [x, y]);
-
-                if (!val) inside = false;
-              });
-              if (inside) {
-                col = true;
-                pixelLog.push([x, y]);
-              }
-            }
-          });
-        }
-      });
-    };
-
-    onPath();
-    return { pixelLog, col };
-    // return pixelLog?.length ? pixelLog[pixelLog.length - 1] : pixelLog;
-  },
-};
+import {
+  mathLogic,
+  screenLogic,
+  tankLogic,
+  bulletLogic,
+  explosionLogic,
+} from "./logicMethods";
 
 const GameLogic = ({
   inputState,
@@ -911,6 +482,37 @@ const GameLogic = ({
                   [v[3], v[0]],
                 ])
               : {};
+
+          const testData = Object.keys(newTanks).map((id) => {
+            const tank = newTanks[id];
+
+            return tank.id !== me.id && bullet.owner !== tank.id
+              ? bulletLogic.collidedWithPolygon(
+                  bullet,
+                  tankLogic.getFaceArray(tank)
+                )
+              : false;
+          });
+
+          testData.forEach((colData) => {
+            if (colData.col) {
+              newState.assumedHits.push({
+                owner: bullet.owner,
+                id: bullet.id,
+                point: [colData.pixelLog[0][0], colData.pixelLog[0][1]],
+              });
+              newState.explosionArray.push({
+                type: 0,
+                xPos: colData.pixelLog[0][0],
+                yPos: colData.pixelLog[0][1],
+                step: 0,
+                duration: explosionLogic.type["0"].duration,
+              });
+              bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
+            }
+          });
+
+          //console.log("colision data", testData);
           // if (tankCollisionData.pixelLog.length) {
           //   newTanks.me.colLine = tankCollisionData.pixelLog;
           // }
@@ -1003,23 +605,35 @@ const GameLogic = ({
 
           if (newTanks[tank].hitBy) {
             const { owner, id, point } = newTanks[tank].hitBy;
-            // const name = owner === me.id ? me.username : newTanks[owner].username;
-            //console.log( `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}`);
-            const index = newState.bulletArray.findIndex(
-              (bullet) => bullet.owner === owner && bullet.id === id
+            const name =
+              owner === me.id ? me.username : newTanks[owner].username;
+            console.log(
+              `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}`
             );
 
-            newState.explosionArray.push({
-              type: 0,
-              xPos: point[0],
-              yPos: point[1],
-              step: 0,
-              duration: explosionLogic.type["0"].duration,
-            });
-            newState.bulletArray[index] = {
-              ...newState.bulletArray[index],
-              ...bulletLogic.moveOB(newState.bulletArray[index]),
-            };
+            const hitIndex = newState.assumedHits.findIndex(
+              (bullet) => bullet.owner === owner && bullet.id === id
+            );
+            if (hitIndex >= 0) {
+              // console.log("hit already detected");
+              newState.assumedHits.splice(hitIndex, 0);
+            } else {
+              const index = newState.bulletArray.findIndex(
+                (bullet) => bullet.owner === owner && bullet.id === id
+              );
+
+              newState.explosionArray.push({
+                type: 0,
+                xPos: point[0],
+                yPos: point[1],
+                step: 0,
+                duration: explosionLogic.type["0"].duration,
+              });
+              newState.bulletArray[index] = {
+                ...newState.bulletArray[index],
+                ...bulletLogic.moveOB(newState.bulletArray[index]),
+              };
+            }
 
             newTanks[tank].hitBy = false;
           }
@@ -1040,6 +654,7 @@ const GameLogic = ({
       else
         setGameState({
           ...gameState,
+          assumedHits: newState.assumedHits,
           shotsFired: newState.shotsFired,
           fireTimeOut: newState.fireTimeOut,
           bulletArray: newState.bulletArray,

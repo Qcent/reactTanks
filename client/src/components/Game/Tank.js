@@ -1,6 +1,16 @@
 import React from "react";
+import { tankLogic } from "./logicMethods";
 
-const Tank = ({ styling, tankState, mapXpos, mapYpos }) => {
+const randomColor = () => Math.floor(Math.random() * 16777215).toString(16);
+
+const Tank = ({
+  styling,
+  tankState,
+  mapXpos,
+  mapYpos,
+  viewPortWidth,
+  viewPortHeight,
+}) => {
   const { me } = tankState;
   styling = {
     ...styling,
@@ -13,13 +23,21 @@ const Tank = ({ styling, tankState, mapXpos, mapYpos }) => {
   };
   const otherTanks = [];
   for (const tank in tankState) {
-    if (tank !== "me") {
+    if (
+      tank !== "me" &&
+      !tankLogic.isOnScreen(tank, {
+        mapXpos,
+        mapYpos,
+        viewPortWidth,
+        viewPortHeight,
+      })
+    ) {
       otherTanks.push(
         <div
           key={tank}
           style={{
             ...styling,
-            backgroundColor: "green",
+            backgroundColor: `skyblue`,
             left: tankState[tank].xPos - mapXpos,
             top: tankState[tank].yPos - mapYpos,
             transform: `rotate(${tankState[tank].theta}deg)`,

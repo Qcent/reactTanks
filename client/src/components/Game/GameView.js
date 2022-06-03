@@ -48,6 +48,8 @@ const GameView = ({ gameState, tankState, mapImg, mapOverlay, mapObjects }) => {
           tankState={tankState}
           mapXpos={gameState.mapXpos}
           mapYpos={gameState.mapYpos}
+          viewPortWidth={gameState.viewPortWidth}
+          viewPortHeight={gameState.viewPortHeight}
         />
         <Bullets
           styling={{

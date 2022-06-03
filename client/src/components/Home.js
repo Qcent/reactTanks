@@ -45,6 +45,7 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
     viewPortHeight: 600,
     bulletArray: [],
     explosionArray: [],
+    assumedHits: [],
   });
   const [tankState, setTankState] = useState({
     me: {
