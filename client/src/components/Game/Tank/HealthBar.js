@@ -8,7 +8,7 @@ const HealthBar = ({ styling, health, maxHealth, left, top, width }) => {
     justifyContent: "center",
     gap: ".5px",
     width: width,
-    left: left - width / 3.5,
+    left: left - width / 4.5,
     top: top - 4,
   };
 
@@ -16,10 +16,13 @@ const HealthBar = ({ styling, health, maxHealth, left, top, width }) => {
     backgroundColor: "#29d3e9",
     border: "1px solid #029ecc",
     borderRadius: "5px",
-    width: healthPercent > 0.35 ? (width / 3) * healthPercent : 0,
+    width:
+      healthPercent > 0.33
+        ? (width / 3) * ((100 / 77) * healthPercent - 0.33)
+        : 0,
     maxWidth: width / 3,
     height: "5px",
-    opacity: healthPercent < 0.35 ? 0 : 1,
+    opacity: healthPercent < 0.33 ? 0 : 1,
   };
 
   const HealthBoxStyling = {
