@@ -1,7 +1,10 @@
 import React from "react";
 
-const HealthBar = ({ styling, health, maxHealth, left, top, width }) => {
+const HealthBar = ({ styling, enemy, health, maxHealth, left, top, width }) => {
   const healthPercent = health / maxHealth;
+  const barColor = enemy ? "#e91329" : "#29d3e9",
+    outlineColor = enemy ? "#cc3e02" : "#029ecc";
+
   const HealthBarStyling = {
     ...styling,
     display: "flex",
@@ -13,8 +16,8 @@ const HealthBar = ({ styling, health, maxHealth, left, top, width }) => {
   };
 
   const HealthSideBoxStyling = {
-    backgroundColor: "#29d3e9",
-    border: "1px solid #029ecc",
+    backgroundColor: barColor,
+    border: `1px solid ${outlineColor}`,
     borderRadius: "5px",
     width:
       healthPercent > 0.33
@@ -26,8 +29,8 @@ const HealthBar = ({ styling, health, maxHealth, left, top, width }) => {
   };
 
   const HealthBoxStyling = {
-    backgroundColor: "#29d3e9",
-    border: "1px solid #029ecc",
+    backgroundColor: barColor,
+    border: `1px solid ${outlineColor}`,
     borderRadius: "5px",
     minWidth: "4px",
     width: healthPercent > 0.33 ? width / 3 : (width / 3) * healthPercent * 3,

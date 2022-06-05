@@ -22,6 +22,24 @@ const GameLogic = ({
   tankUpdates,
   setTankUpdates,
 }) => {
+  const newTickerItem = (txt, tickerArray, duration = 300) => {
+    tickerArray.push({
+      txt,
+      duration,
+      step: 0,
+    });
+  };
+  const tickerReducer = (tickerArray) =>
+    tickerArray.reduce((filtered, item) => {
+      if (item.step < item.duration) {
+        filtered.push({
+          ...item,
+          step: item.step + 1,
+        });
+      }
+      return filtered;
+    }, []);
+
   // Lifecycle
 
   useEffect(() => {
@@ -53,11 +71,13 @@ const GameLogic = ({
 
       // position at spawn point right before the timeout ends
       if (newState.reSpawnTimeOut === 25) {
+        newState.cruiseMode = true;
+        newState.killStreak = 0;
         tankLogic.spawn(
           newTanks.me,
           screenLogic.bestSpawnPoint(newTanks, gameState.spawnPositions)
         );
-        updateMe = true;
+        updateMe = updateGame = true;
       }
 
       //handle inputs
@@ -584,6 +604,18 @@ const GameLogic = ({
               newTanks.me,
               bulletLogic.type[bullet.type].damage
             );
+            if (!newTanks.me.health) {
+              newState.deaths ? newState.deaths++ : (newState.deaths = 1);
+              newState.deathStreak
+                ? newState.deathStreak++
+                : (newState.deathStreak = 1);
+              if (newState.deathStreak > newState.longestDeathStreak)
+                newState.longestDeathStreak = newState.deathStreak;
+              newTickerItem(
+                `${newTanks[bullet.owner].username} killed ${me.username}`,
+                newState.gameTicker
+              );
+            }
             hitBy = {
               owner: bullet.owner,
               id: bullet.id,
@@ -641,7 +673,10 @@ const GameLogic = ({
             1
           );
           updateTanks = true;
-          console.log(newTanks[tank].username, "has respawned");
+          newTickerItem(
+            `${newTanks[tank].username} has respawned`,
+            newState.gameTicker
+          );
         }
         // END OF SPAWN A TANK
 
@@ -659,11 +694,27 @@ const GameLogic = ({
           newTanks[tank].exploded &&
           !newState.inactiveTanks?.includes(tank)
         ) {
-          console.log(
-            newTanks[tank].username,
-            "has died",
-            newTanks[tank].hitBy
-          );
+          if (tank !== "me") {
+            let killer = newTanks[tank].hitBy.owner;
+            if (killer === me.id) {
+              killer = "me";
+              newState.shotsHit ? newState.shotsHit++ : (newState.shotsHit = 1);
+              newState.enemyKills
+                ? newState.enemyKills++
+                : (newState.enemyKills = 1);
+              newState.killStreak
+                ? newState.killStreak++
+                : (newState.killStreak = 1);
+              if (newState.killStreak > newState.longestKillStreak)
+                newState.longestKillStreak = newState.killStreak;
+              newState.deathStreak = 0;
+            }
+            newTickerItem(
+              `${newTanks[killer].username} killed ${newTanks[tank].username}`,
+              newState.gameTicker
+            );
+          }
+
           // remove tank from play
           newState.inactiveTanks.push(tank);
           // make explosion
@@ -684,7 +735,6 @@ const GameLogic = ({
         // END OF DEATH OF TANKS
         if (tank !== "me" && !newTanks[tank].exploded) {
           if (newTanks[tank].fire) {
-            console.log(newTanks[tank].username, "fired a shot");
             const id = newTanks[tank].fire;
             newTanks[tank].fire = false;
             newState.bulletArray.push({
@@ -708,11 +758,19 @@ const GameLogic = ({
           // tank has self reported a hit
           if (newTanks[tank].hitBy) {
             const { owner, id, point } = newTanks[tank].hitBy;
-            const name =
-              owner === me.id ? me.username : newTanks[owner].username;
-            console.log(
-              `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}::${newTanks[tank].health} `
-            );
+            if (owner === me.id)
+              newState.shotsHit ? newState.shotsHit++ : (newState.shotsHit = 1);
+
+            if (newTanks[tank].health === 0) {
+              let killer = newTanks[tank].hitBy.owner;
+              if (killer === me.id) {
+                killer = "me";
+              }
+              newTickerItem(
+                `${newTanks[killer].username} killed ${newTanks[tank].username}`,
+                newState.gameTicker
+              );
+            }
 
             // compare reported hit to assumed hit list
             const hitIndex = newState.assumedHits.findIndex(
@@ -759,6 +817,7 @@ const GameLogic = ({
       if (newState.fireTimeOut) {
         newState.fireTimeOut--;
       }
+      newState.gameTicker = tickerReducer(newState.gameTicker);
 
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
@@ -769,11 +828,19 @@ const GameLogic = ({
           ...gameState,
           assumedHits: newState.assumedHits,
           shotsFired: newState.shotsFired,
+          shotsHit: newState.shotsHit,
+          enemyKills: newState.enemyKills,
+          killStreak: newState.killStreak,
+          longestKillStreak: newState.longestKillStreak,
+          deaths: newState.deaths,
+          deathStreak: newState.deathStreak,
+          longestDeathStreak: newState.longestDeathStreak,
           fireTimeOut: newState.fireTimeOut,
           reSpawnTimeOut: newState.reSpawnTimeOut,
           bulletArray: newState.bulletArray,
           explosionArray: newState.explosionArray,
           inactiveTanks: newState.inactiveTanks,
+          gameTicker: newState.gameTicker,
         });
 
       //broadcast new tank state

@@ -15,7 +15,7 @@ const Tank = ({
   friendlyHealth,
   enemyHealth,
 }) => {
-  const halfCharWidth = 3.3;
+  const halfCharWidth = 3;
   const { me } = tankState;
 
   const otherTankStyling = {

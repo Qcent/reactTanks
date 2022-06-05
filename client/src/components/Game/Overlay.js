@@ -1,7 +1,16 @@
 import React from "react";
 
 const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
-  const { mapXpos, mapYpos } = gameState;
+  const { mapXpos, mapYpos, gameTicker } = gameState;
+  const {
+    shotsFired,
+    shotsHit,
+    enemyKills,
+    killStreak,
+    longestKillStreak,
+    deaths,
+    longestDeathStreak,
+  } = gameState;
   const { me } = tankState;
   const { colLine, bulletTest } = me;
 
@@ -20,7 +29,9 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
     height: 1,
   };
 
-  const points = [];
+  const gTicker = [],
+    points = [];
+
   if (colLine?.length) {
     for (let i = 0; i < colLine.length; i++) {
       const [x, y] = colLine[i];
@@ -47,10 +58,37 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
     }
   }
 
+  if (gameTicker?.length) {
+    for (let i = 0; i < gameTicker.length; i++) {
+      gTicker.push(<div key={`gtick${i}`}>{gameTicker[i].txt}</div>);
+    }
+  }
+
   return (
     <>
       <img src={mapOverlay} style={styling} alt="map" />
       {points}
+      <div style={{ ...styling, left: 10, bottom: 10, top: "none" }}>
+        {gTicker}
+      </div>
+
+      <div
+        style={{
+          ...styling,
+          left: "90%",
+          bottom: 10,
+          top: "none",
+          color: "cyan",
+        }}
+      >
+        <div>shotsFired: {shotsFired}</div>
+        <div>shotsHit: {shotsHit}</div>
+        <div>enemyKills: {enemyKills}</div>
+        <div>killStreak: {killStreak}</div>
+        <div>longestKillStreak: {longestKillStreak}</div>
+        <div>deaths: {deaths}</div>
+        <div>longestDeathStreak: {longestDeathStreak}</div>
+      </div>
     </>
   );
 };

@@ -60,10 +60,13 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
     cruiseMode: true, // keep Tank centered
     viewPortWidth: 1500,
     viewPortHeight: 600,
+    longestKillStreak: 0,
+    longestDeathStreak: 0,
     bulletArray: [],
     explosionArray: [],
     assumedHits: [],
     inactiveTanks: [],
+    gameTicker: [],
   });
   const [tankState, setTankState] = useState({
     me: {
