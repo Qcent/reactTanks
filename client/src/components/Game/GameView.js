@@ -50,6 +50,11 @@ const GameView = ({ gameState, tankState, mapImg, mapOverlay, mapObjects }) => {
           mapYpos={gameState.mapYpos}
           viewPortWidth={gameState.viewPortWidth}
           viewPortHeight={gameState.viewPortHeight}
+          // Toggle Settings
+          friendlyTags={gameState.nameDisplay > 0 ? true : false}
+          enemyTags={gameState.nameDisplay > 1 ? true : false}
+          friendlyHealth={gameState.healthDisplay > 0 ? true : false}
+          enemyHealth={gameState.healthDisplay > 1 ? true : false}
         />
         <Bullets
           styling={{

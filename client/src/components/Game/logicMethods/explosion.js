@@ -1,7 +1,7 @@
 import mathLogic from "./math";
 
 const explosionLogic = {
-  type: { 0: { duration: 35, size: 26 } },
+  type: { 0: { duration: 35, size: 26 }, 1: { duration: 66, size: 56 } },
   arrayReducer: (explosions) =>
     explosions.reduce((filtered, explosion) => {
       if (explosion.step < explosionLogic.type[explosion.type].duration) {

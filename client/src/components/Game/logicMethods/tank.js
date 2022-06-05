@@ -3,7 +3,7 @@ import mathLogic from "./math";
 const RADS = Math.PI / 180;
 
 const tankLogic = {
-  type: { 0: { width: 30, height: 22, speed: 3, health: 100 } },
+  type: { 0: { width: 30, height: 22, speed: 3, maxHealth: 100 } },
   moveY: (tank, amt) =>
     tankLogic.coordLimitCheck(tank, { yPos: tank.yPos + amt }),
   moveX: (tank, amt) =>
@@ -108,11 +108,24 @@ const tankLogic = {
     }
     return bestMatch;
   },
+  takeDamage: (tank, damage) => {
+    tank.health -= damage;
+    if (tank.health < 0) tank.health = 0;
+  },
+  spawn: (tank, position) => {
+    const { point, theta } = position;
+    tank.exploded = false;
+    tank.health = tankLogic.type[tank.tankType].maxHealth;
+    tank.xPos = point[0];
+    tank.yPos = point[1];
+    tank.theta = theta;
+  },
   sharedData: ({
     id,
     username,
     tankType,
     health,
+    exploded,
     xPos,
     yPos,
     theta,
@@ -125,6 +138,7 @@ const tankLogic = {
       username,
       tankType,
       health,
+      exploded,
       xPos,
       yPos,
       theta,

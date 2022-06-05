@@ -3,7 +3,7 @@ const router = require('express').Router();
 router.use('/user', require('./user'));
 
 router.use((req, res, next) => {
-  const error = new Error('Not Found');
+  const error = new Error(`Not Found ${req}`);
   error.status = 404;
   next(error);
 });

@@ -35,17 +35,35 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
 
   const [gameState, setGameState] = useState({
     fps: 60,
-    tankSpeed: 3,
+    spawnPositions: [
+      { point: [300, 500], theta: 90 },
+      { point: [5934, 1265], theta: 180 },
+      { point: [5042, 1443], theta: 270 },
+      { point: [5302, 2878], theta: 0 },
+      { point: [5655, 3628], theta: 147 },
+      { point: [3136, 3696], theta: 310 },
+      { point: [1875, 3901], theta: 170 },
+      { point: [209, 3571], theta: 0 },
+      { point: [407, 1708], theta: 25 },
+      { point: [1581, 496], theta: 126 },
+      { point: [2829, 66], theta: 39 },
+      { point: [4164, 115], theta: 120 },
+      { point: [4368, 857], theta: 206 },
+      { point: [4482, 2018], theta: 183 },
+      { point: [4039, 2562], theta: 72 },
+      { point: [2652, 2569], theta: 64 },
+    ],
     mapWidth: 6000,
     mapHeight: 4000,
-    mapXpos: 0,
-    mapYpos: 0,
+    mapXpos: 2600,
+    mapYpos: 1700,
     cruiseMode: true, // keep Tank centered
-    viewPortWidth: 800,
+    viewPortWidth: 1500,
     viewPortHeight: 600,
     bulletArray: [],
     explosionArray: [],
     assumedHits: [],
+    inactiveTanks: [],
   });
   const [tankState, setTankState] = useState({
     me: {
@@ -54,13 +72,14 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
       tankType: user.tankType,
       ammoType: user.ammoType || "0",
       health: user.health || 100,
+      exploded: false,
       speed: 3,
       width: 30,
       height: 22,
-      xPos: user.xPos || 100,
-      yPos: user.yPos || 230,
-      screenX: 100,
-      screenY: 230,
+      xPos: user.xPos || -1,
+      yPos: user.yPos || -1,
+      screenX: 0,
+      screenY: 0,
       theta: user.theta || 0,
     },
   });
@@ -206,7 +225,12 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
       ) : (
         <Grid container component="main" className={classes.root}>
           <CssBaseline />
-          <Button onClick={handleLogout}>Logout</Button>
+          <Button
+            style={{ position: "absolute", top: 0 }}
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
           <GameLogic
             inputState={inputState}
             gameState={gameState}

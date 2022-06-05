@@ -34,61 +34,110 @@ const GameLogic = ({
       let updateMe = false,
         updateGame = false,
         updateTanks = false,
-        movementBlocked = false,
         didFire = false;
 
+      if (me.xPos === -1 && me.yPos === -1) {
+        tankLogic.spawn(
+          newTanks.me,
+          screenLogic.randomSpawnPoint(gameState.spawnPositions)
+        );
+        updateMe = true;
+      }
+
+      // update other tanks from received net data
       if (Object.keys(tankUpdates).length) {
         updateTanks = true;
         newTanks = { ...newTanks, ...tankUpdates };
         setTankUpdates({});
       }
 
+      // position at spawn point right before the timeout ends
+      if (newState.reSpawnTimeOut === 25) {
+        tankLogic.spawn(
+          newTanks.me,
+          screenLogic.bestSpawnPoint(newTanks, gameState.spawnPositions)
+        );
+        updateMe = true;
+      }
+
       //handle inputs
+      if (!newState.reSpawnTimeOut) {
+        if (inputState["ArrowLeft"]) {
+          newTanks.me.theta = tankLogic.rotate(me, -1);
+          updateMe = true;
+        }
+        if (inputState["ArrowRight"]) {
+          newTanks.me.theta = tankLogic.rotate(me);
+          updateMe = true;
+        }
+        if (inputState["ArrowUp"]) {
+          newTanks.me = {
+            ...newTanks.me,
+            ...tankLogic.moveAtAngle(me, gameState),
+            direction: 1,
+          };
+          updateMe = true;
+        }
+        if (inputState["ArrowDown"]) {
+          newTanks.me = {
+            ...newTanks.me,
+            ...tankLogic.moveAtAngle(me, gameState, -1),
+            direction: -1,
+          };
+          updateMe = true;
+        }
+        //movement check
+        if (
+          newTanks.me.direction !== 0 &&
+          !inputState["ArrowUp"] &&
+          !inputState["ArrowDown"]
+        ) {
+          newTanks.me = { ...newTanks.me, direction: 0 };
+          updateMe = true;
+        }
 
-      if (inputState["ArrowLeft"]) {
-        newTanks.me.theta = tankLogic.rotate(me, -1);
-        updateMe = true;
-      }
-      if (inputState["ArrowRight"]) {
-        newTanks.me.theta = tankLogic.rotate(me);
-        updateMe = true;
-      }
-      if (inputState["ArrowUp"]) {
-        newTanks.me = {
-          ...newTanks.me,
-          ...tankLogic.moveAtAngle(me, gameState),
-          direction: 1,
-        };
-        updateMe = true;
-      }
-      if (inputState["ArrowDown"]) {
-        newTanks.me = {
-          ...newTanks.me,
-          ...tankLogic.moveAtAngle(me, gameState, -1),
-          direction: -1,
-        };
-        updateMe = true;
-      }
-      //movement check
-      if (
-        newTanks.me.direction !== 0 &&
-        !inputState["ArrowUp"] &&
-        !inputState["ArrowDown"]
-      ) {
-        newTanks.me = { ...newTanks.me, direction: 0 };
-        updateMe = true;
-      }
+        /* TOGGLE BUTTONS */
+        // cruise mode
+        if (inputState["x"] && !newState.cruiseModeChange) {
+          newState.cruiseMode = !gameState.cruiseMode;
+          newState.cruiseModeChange = true;
+          updateGame = true;
+        }
+        if (newState.cruiseModeChange && !inputState["x"]) {
+          newState.cruiseModeChange = false;
+          updateGame = true;
+        }
 
-      /* TOGGLE BUTTONS */
-      // cruise mode
-      if (inputState["q"] && !newState.cruiseModeChange) {
-        newState.cruiseMode = !gameState.cruiseMode;
-        newState.cruiseModeChange = true;
-        updateGame = true;
-      }
-      if (newState.cruiseModeChange && !inputState["q"]) {
-        newState.cruiseModeChange = false;
-        updateGame = true;
+        // Name display 3 setting toggle
+        if (inputState["z"] && !newState.nameDisplayChange) {
+          //newState.nameDisplay = !gameState.nameDisplay;
+          newState.nameDisplay = gameState.nameDisplay
+            ? gameState.nameDisplay < 2
+              ? gameState.nameDisplay + 1
+              : 0
+            : 1;
+          newState.nameDisplayChange = true;
+          updateGame = true;
+        }
+        if (newState.nameDisplayChange && !inputState["z"]) {
+          newState.nameDisplayChange = false;
+          updateGame = true;
+        }
+
+        // Health display 3 setting toggle
+        if (inputState["c"] && !newState.healthDisplayChange) {
+          newState.healthDisplay = gameState.healthDisplay
+            ? gameState.healthDisplay < 2
+              ? gameState.healthDisplay + 1
+              : 0
+            : 1;
+          newState.healthDisplayChange = true;
+          updateGame = true;
+        }
+        if (newState.healthDisplayChange && !inputState["c"]) {
+          newState.healthDisplayChange = false;
+          updateGame = true;
+        }
       }
 
       // fire bullet
@@ -459,42 +508,43 @@ const GameLogic = ({
             return false;
           })()
         ) {
-          updateMe = updateGame = false;
+          newTanks.me = { ...me, fire: newTanks.me.fire };
+          updateGame = false;
         }
       }
       // END OF TANK COLLISION DETECTION
 
-      // handle bullet positions and collisons
+      // handle bullet positions and collisons tank death, explosion creation
       let hitBy = false;
       newState.bulletArray = newState.bulletArray.reduce((filtered, bullet) => {
         if (bulletLogic.isOnMap(bullet, newState)) {
           bullet = { ...bullet, ...bulletLogic.moveAtAngle(bullet) };
-          const collisionData = bulletLogic.collidedWithMapObject(
+          const mapCollisionData = bulletLogic.collidedWithMapObject(
             bullet,
             mapObjects
           );
-          const tankCollisionData =
-            bullet.owner !== me.id
-              ? bulletLogic.collidedWithPolygon(bullet, [
-                  [v[0], v[1]],
-                  [v[1], v[2]],
-                  [v[2], v[3]],
-                  [v[3], v[0]],
-                ])
+          const myCollisionData =
+            bullet.owner !== me.id && !newTanks.me.exploded
+              ? bulletLogic.collidedWithPolygon(
+                  bullet,
+                  tankLogic.getFaceArray(newTanks.me)
+                )
               : {};
 
-          const testData = Object.keys(newTanks).map((id) => {
+          // hit prediction creates list of assumed hits to be confirmed from self reporting tank
+          const otherTanksCollisionData = Object.keys(newTanks).map((id) => {
             const tank = newTanks[id];
-
-            return tank.id !== me.id && bullet.owner !== tank.id
+            return !tank.exploded &&
+              tank.id !== me.id &&
+              bullet.owner !== tank.id
               ? bulletLogic.collidedWithPolygon(
                   bullet,
                   tankLogic.getFaceArray(tank)
                 )
               : false;
           });
-
-          testData.forEach((colData) => {
+          //create an explosion and add hit to assumed hit list
+          otherTanksCollisionData.forEach((colData) => {
             if (colData.col) {
               newState.assumedHits.push({
                 owner: bullet.owner,
@@ -511,37 +561,41 @@ const GameLogic = ({
               bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
             }
           });
+          // END OF HIT PREDICTION
 
-          //console.log("colision data", testData);
-          // if (tankCollisionData.pixelLog.length) {
-          //   newTanks.me.colLine = tankCollisionData.pixelLog;
+          // if (myCollisionData.pixelLog.length) {
+          //   newTanks.me.colLine = myCollisionData.pixelLog;
           // }
-          if (collisionData.col) {
+          if (mapCollisionData.col) {
             newState.explosionArray.push({
               type: 0,
-              xPos: collisionData.col[0],
-              yPos: collisionData.col[1],
-              // xPos: collisionData[0],
-              // yPos: collisionData[1],
+              xPos: mapCollisionData.col[0],
+              yPos: mapCollisionData.col[1],
+              // xPos: mapCollisionData[0],
+              // yPos: mapCollisionData[1],
               step: 0,
               duration: explosionLogic.type["0"].duration,
             });
             bullet = { ...bullet, ...bulletLogic.moveOB(bullet) };
           }
-          if (tankCollisionData.col) {
+          if (myCollisionData.col) {
             updateMe = true;
+            tankLogic.takeDamage(
+              newTanks.me,
+              bulletLogic.type[bullet.type].damage
+            );
             hitBy = {
               owner: bullet.owner,
               id: bullet.id,
               point: [
-                tankCollisionData.pixelLog[0][0],
-                tankCollisionData.pixelLog[0][1],
+                myCollisionData.pixelLog[0][0],
+                myCollisionData.pixelLog[0][1],
               ],
             };
             newState.explosionArray.push({
               type: 0,
-              xPos: tankCollisionData.pixelLog[0][0],
-              yPos: tankCollisionData.pixelLog[0][1],
+              xPos: myCollisionData.pixelLog[0][0],
+              yPos: myCollisionData.pixelLog[0][1],
               step: 0,
               duration: explosionLogic.type["0"].duration,
             });
@@ -552,10 +606,7 @@ const GameLogic = ({
         return filtered;
       }, []);
 
-      //handle bullet firing
-      if (newState.fireTimeOut) {
-        newState.fireTimeOut--;
-      }
+      //handle bullet firing for local tank
       if (newTanks.me.fire) {
         newState.shotsFired ? newState.shotsFired++ : (newState.shotsFired = 1);
         newState.bulletArray.push({
@@ -578,9 +629,60 @@ const GameLogic = ({
         newState.fireTimeOut = bulletLogic.type[newTanks.me.ammoType].timeOut;
       }
 
-      // loop through other tanks for firing and hits
+      // loop through all tanks for spawn/death and other tanks for firing and reported hits
       for (const tank in newTanks) {
-        if (tank !== "me") {
+        // Spawn Of A Tank
+        if (
+          !newTanks[tank].exploded &&
+          newState.inactiveTanks?.includes(tank)
+        ) {
+          newState.inactiveTanks.splice(
+            newState.inactiveTanks.findIndex((id) => id === tank),
+            1
+          );
+          updateTanks = true;
+          console.log(newTanks[tank].username, "has respawned");
+        }
+        // END OF SPAWN A TANK
+
+        // Death Of A Tank
+        if (
+          newTanks[tank].id === me.id &&
+          !newTanks[tank].exploded &&
+          !newTanks[tank].health
+        ) {
+          newState.reSpawnTimeOut = 300;
+          newTanks[tank].exploded = true;
+        }
+
+        if (
+          newTanks[tank].exploded &&
+          !newState.inactiveTanks?.includes(tank)
+        ) {
+          console.log(
+            newTanks[tank].username,
+            "has died",
+            newTanks[tank].hitBy
+          );
+          // remove tank from play
+          newState.inactiveTanks.push(tank);
+          // make explosion
+          const center = [
+            newTanks[tank].xPos +
+              tankLogic.type[newTanks[tank].tankType].width / 2,
+            newTanks[tank].yPos +
+              tankLogic.type[newTanks[tank].tankType].height / 2,
+          ];
+          newState.explosionArray.push({
+            type: 1,
+            xPos: center[0],
+            yPos: center[1],
+            step: 0,
+            duration: explosionLogic.type["1"].duration,
+          });
+        }
+        // END OF DEATH OF TANKS
+        if (tank !== "me" && !newTanks[tank].exploded) {
           if (newTanks[tank].fire) {
             console.log(newTanks[tank].username, "fired a shot");
             const id = newTanks[tank].fire;
@@ -603,21 +705,24 @@ const GameLogic = ({
             });
           }
 
+          // tank has self reported a hit
           if (newTanks[tank].hitBy) {
             const { owner, id, point } = newTanks[tank].hitBy;
             const name =
               owner === me.id ? me.username : newTanks[owner].username;
             console.log(
-              `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}`
+              `${newTanks[tank].username} was hit by ${name} with bullet id: ${id}::${newTanks[tank].health} `
             );
 
+            // compare reported hit to assumed hit list
             const hitIndex = newState.assumedHits.findIndex(
               (bullet) => bullet.owner === owner && bullet.id === id
             );
             if (hitIndex >= 0) {
               // console.log("hit already detected");
-              newState.assumedHits.splice(hitIndex, 0);
+              newState.assumedHits.splice(hitIndex, 1);
             } else {
+              // console.log("hit was un-detected");
               const index = newState.bulletArray.findIndex(
                 (bullet) => bullet.owner === owner && bullet.id === id
               );
@@ -647,6 +752,14 @@ const GameLogic = ({
       );
       // END OF EXPLOSION ANIMATION/DESTRUCTION
 
+      // decrement all timeouts
+      if (newState.reSpawnTimeOut) {
+        newState.reSpawnTimeOut--;
+      }
+      if (newState.fireTimeOut) {
+        newState.fireTimeOut--;
+      }
+
       // Update Tank and Game State
       if (updateMe) setTankState({ ...newTanks });
       else if (updateTanks) setTankState({ ...newTanks, me: tankState.me });
@@ -657,11 +770,13 @@ const GameLogic = ({
           assumedHits: newState.assumedHits,
           shotsFired: newState.shotsFired,
           fireTimeOut: newState.fireTimeOut,
+          reSpawnTimeOut: newState.reSpawnTimeOut,
           bulletArray: newState.bulletArray,
           explosionArray: newState.explosionArray,
+          inactiveTanks: newState.inactiveTanks,
         });
 
-      //debugging output
+      //broadcast new tank state
       if (updateMe) {
         emitTankData(
           tankLogic.sharedData({
@@ -671,6 +786,7 @@ const GameLogic = ({
           })
         );
       }
+
       // end logic cycle
       setReadyState(false);
     }

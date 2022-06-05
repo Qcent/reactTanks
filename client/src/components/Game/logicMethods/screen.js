@@ -1,3 +1,5 @@
+import mathLogic from "./math";
+
 const RADS = Math.PI / 180;
 
 const screenLogic = {
@@ -36,6 +38,44 @@ const screenLogic = {
       mapYpos = 0;
     }
     return { mapXpos, mapYpos, drift: { x: xDrift, y: yDrift } };
+  },
+  randomSpawnPoint: (spawnPositions) =>
+    spawnPositions[Math.floor(Math.random() * spawnPositions.length)],
+  bestSpawnPoint: (tankState, spawnPositions) => {
+    const minDistance = 1000;
+
+    let farthestSpawn,
+      closestViableSpawn,
+      farthestDist = 0,
+      closestViableDist,
+      firstViable = true;
+
+    for (let i = 0; i < spawnPositions.length; i++) {
+      for (const id in tankState) {
+        const compTank = tankState[id];
+        const tmp = mathLogic.findLength(
+          ...mathLogic.differenceBetweenPoints(
+            [compTank.xPos, compTank.yPos],
+            spawnPositions[i].point
+          )
+        );
+
+        if (tmp > minDistance && (firstViable || tmp < closestViableDist)) {
+          closestViableDist = tmp;
+          closestViableSpawn = i;
+          firstViable = false;
+        }
+
+        if (tmp > farthestDist) {
+          farthestDist = tmp;
+          farthestSpawn = i;
+        }
+      }
+    }
+
+    return closestViableSpawn
+      ? spawnPositions[closestViableSpawn]
+      : spawnPositions[farthestSpawn];
   },
 };
 

@@ -3,7 +3,7 @@ import mathLogic from "./math";
 const RADS = Math.PI / 180;
 
 const bulletLogic = {
-  type: { 0: { speed: 25, width: 7, height: 7, timeOut: 45 } },
+  type: { 0: { speed: 25, damage: 33, width: 7, height: 7, timeOut: 45 } },
   moveOB: (bullet) => {
     if (bullet)
       return {

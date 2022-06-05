@@ -11,17 +11,6 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
     top: -mapYpos,
   };
 
-  const tankDotStyling = {
-    ...styling,
-    border: "1px solid #29d3e9",
-    borderRadius: "50%",
-    backgroundColor: "#29d3e9",
-    width: 1,
-    height: 1,
-    left: me.screenX + me.width / 2,
-    top: me.screenY + me.height / 2,
-  };
-
   const pointStyle = {
     ...styling,
     border: "1px solid #363636",
@@ -61,7 +50,6 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
   return (
     <>
       <img src={mapOverlay} style={styling} alt="map" />
-      <div style={tankDotStyling}></div>
       {points}
     </>
   );
