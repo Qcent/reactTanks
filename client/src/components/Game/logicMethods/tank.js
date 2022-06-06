@@ -132,6 +132,7 @@ const tankLogic = {
     ammoType,
     fire,
     hitBy,
+    joined,
   }) => {
     return {
       id,
@@ -145,6 +146,7 @@ const tankLogic = {
       ammoType,
       fire,
       hitBy,
+      joined,
     };
   },
 };

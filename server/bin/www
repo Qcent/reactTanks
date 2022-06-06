@@ -40,13 +40,13 @@ io.on('connection', (socket) => {
         tankType: user.tankType,
       };
     }
-    // send the user who just went online to everyone else who is already online
-    socket.broadcast.emit('add-online-user', user);
+    // send the user who just went online to everyone else online
+    socket.broadcast.emit('add-online-user', onlineUsers[user.id]);
   });
 
   socket.on('new-tank-position', (data) => {
     socket.broadcast.emit('new-tank-position', { ...data });
-    onlineUsers[data.id] = { ...onlineUsers[data.id], ...data };
+    onlineUsers[data.id] = { ...onlineUsers[data.id], ...data, joined: false };
   });
 
   socket.on('logout', (id) => {

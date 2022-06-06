@@ -22,7 +22,7 @@ const GameLogic = ({
   tankUpdates,
   setTankUpdates,
 }) => {
-  const newTickerItem = (txt, tickerArray, duration = 300) => {
+  const newTickerItem = (txt, tickerArray, duration = 400) => {
     tickerArray.push({
       txt,
       duration,
@@ -59,6 +59,7 @@ const GameLogic = ({
           newTanks.me,
           screenLogic.randomSpawnPoint(gameState.spawnPositions)
         );
+        newTanks.me.joined = true;
         updateMe = true;
       }
 
@@ -125,6 +126,17 @@ const GameLogic = ({
         }
         if (newState.cruiseModeChange && !inputState["x"]) {
           newState.cruiseModeChange = false;
+          updateGame = true;
+        }
+
+        // show Stats
+        if (inputState["s"] && !newState.showStatsChange) {
+          newState.showStats = !gameState.showStats;
+          newState.showStatsChange = true;
+          updateGame = true;
+        }
+        if (newState.showStatsChange && !inputState["s"]) {
+          newState.showStatsChange = false;
           updateGame = true;
         }
 
@@ -677,6 +689,13 @@ const GameLogic = ({
             `${newTanks[tank].username} has respawned`,
             newState.gameTicker
           );
+        } else if (newTanks[tank].joined) {
+          updateTanks = true;
+          newTickerItem(
+            `${newTanks[tank].username} has joined the game`,
+            newState.gameTicker
+          );
+          if (tank !== "me") delete newTanks[tank].joined;
         }
         // END OF SPAWN A TANK
 
@@ -810,6 +829,23 @@ const GameLogic = ({
       );
       // END OF EXPLOSION ANIMATION/DESTRUCTION
 
+      //broadcast new tank state
+      if (updateMe) {
+        emitTankData(
+          tankLogic.sharedData({
+            ...newTanks.me,
+            fire: didFire ? newState.shotsFired : didFire,
+            hitBy,
+          })
+        );
+      }
+
+      // clear joind game flag
+      if (newTanks.me.joined) {
+        delete newTanks.me.joined;
+        updateMe = true;
+      }
+
       // decrement all timeouts
       if (newState.reSpawnTimeOut) {
         newState.reSpawnTimeOut--;
@@ -842,17 +878,6 @@ const GameLogic = ({
           inactiveTanks: newState.inactiveTanks,
           gameTicker: newState.gameTicker,
         });
-
-      //broadcast new tank state
-      if (updateMe) {
-        emitTankData(
-          tankLogic.sharedData({
-            ...newTanks.me,
-            fire: didFire ? newState.shotsFired : didFire,
-            hitBy,
-          })
-        );
-      }
 
       // end logic cycle
       setReadyState(false);

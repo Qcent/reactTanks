@@ -37,7 +37,7 @@ const Routes = (props) => {
 
   const emitTankData = async (data) => {
     try {
-      socket.emit("new-tank-position", data);
+      socket.volatile.emit("new-tank-position", data);
     } catch (error) {
       console.error(error);
       setUser({ error: error.response.data.error || "Server Error" });

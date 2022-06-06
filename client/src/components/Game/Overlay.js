@@ -1,8 +1,10 @@
+import transitions from "@material-ui/core/styles/transitions";
 import React from "react";
 
 const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
-  const { mapXpos, mapYpos, gameTicker } = gameState;
+  const { mapXpos, mapYpos, gameTicker, viewPortWidth } = gameState;
   const {
+    showStats,
     shotsFired,
     shotsHit,
     enemyKills,
@@ -68,26 +70,46 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
     <>
       <img src={mapOverlay} style={styling} alt="map" />
       {points}
-      <div style={{ ...styling, left: 10, bottom: 10, top: "none" }}>
-        {gTicker}
-      </div>
+      {gTicker.length && (
+        <div
+          style={{
+            ...styling,
+            left: 10,
+            bottom: 10,
+            width: 210,
+            top: "none",
+            color: "#a5abb9",
+            backgroundColor: "rgba(66, 66, 66, .8)",
+            borderRadius: "5px",
+            padding: "5px 8px",
+          }}
+        >
+          {gTicker}
+        </div>
+      )}
 
       <div
         style={{
           ...styling,
-          left: "90%",
+          left: viewPortWidth - 175,
+          right: 10,
           bottom: 10,
           top: "none",
           color: "cyan",
+          backgroundColor: "rgba(66, 66, 66, .8)",
+          borderRadius: "5px",
+          padding: "5px 8px",
+          opacity: showStats ? 1 : 0,
+          transition: "all .75s",
         }}
       >
-        <div>shotsFired: {shotsFired}</div>
-        <div>shotsHit: {shotsHit}</div>
-        <div>enemyKills: {enemyKills}</div>
-        <div>killStreak: {killStreak}</div>
-        <div>longestKillStreak: {longestKillStreak}</div>
-        <div>deaths: {deaths}</div>
-        <div>longestDeathStreak: {longestDeathStreak}</div>
+        <div>shotsFired: {shotsFired || "--"}</div>
+        <div>shotsHit: {shotsHit || "--"}</div>
+        <div>enemyKills: {enemyKills || "--"}</div>
+        <div>killStreak: {killStreak || "--"}</div>
+        <div>longestKillStreak: {longestKillStreak || "--"}</div>
+        <div>deaths: {deaths || "--"}</div>
+        <div>longestDeathStreak: {longestDeathStreak || "--"}</div>
       </div>
     </>
   );

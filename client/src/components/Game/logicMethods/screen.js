@@ -46,30 +46,42 @@ const screenLogic = {
 
     let farthestSpawn,
       closestViableSpawn,
+      tmpClosestSpawn,
       farthestDist = 0,
       closestViableDist,
+      tmpClosestDist,
       firstViable = true;
 
     for (let i = 0; i < spawnPositions.length; i++) {
+      let notViable = false;
       for (const id in tankState) {
-        const compTank = tankState[id];
-        const tmp = mathLogic.findLength(
-          ...mathLogic.differenceBetweenPoints(
-            [compTank.xPos, compTank.yPos],
-            spawnPositions[i].point
-          )
-        );
+        if (!notViable) {
+          const compTank = tankState[id];
+          const dist = mathLogic.findLength(
+            ...mathLogic.differenceBetweenPoints(
+              [compTank.xPos, compTank.yPos],
+              spawnPositions[i].point
+            )
+          );
+          if (dist < minDistance) {
+            notViable = true;
+          }
 
-        if (tmp > minDistance && (firstViable || tmp < closestViableDist)) {
-          closestViableDist = tmp;
-          closestViableSpawn = i;
-          firstViable = false;
-        }
+          if (dist > minDistance && (firstViable || dist < closestViableDist)) {
+            tmpClosestDist = dist;
+            tmpClosestSpawn = i;
+            firstViable = false;
+          }
 
-        if (tmp > farthestDist) {
-          farthestDist = tmp;
-          farthestSpawn = i;
+          if (dist > farthestDist) {
+            farthestDist = dist;
+            farthestSpawn = i;
+          }
         }
+      }
+      if (!notViable) {
+        closestViableDist = tmpClosestDist;
+        closestViableSpawn = tmpClosestSpawn;
       }
     }
 

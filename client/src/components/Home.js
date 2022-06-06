@@ -107,9 +107,9 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
   const addOnlineUser = useCallback(
     (data) => {
       console.log(`${data.username} came online`);
-      // const { id } = user;
       // setTankUpdates((prev) => {
-      //   return { ...prev, id: { ...user } };
+      //   prev[data.id] = { ...prev[data.id], joined: true };
+      //   return { ...prev };
       // });
     },
     [setTankUpdates]
