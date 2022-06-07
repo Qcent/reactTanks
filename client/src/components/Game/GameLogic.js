@@ -675,6 +675,35 @@ const GameLogic = ({
 
       // loop through all tanks for spawn/death and other tanks for firing and reported hits
       for (const tank in newTanks) {
+        /* EXPERIMANTAL POLY ON POLY (TANK/TANK) COLLISIONS */
+        if (tank !== "me") {
+          const colDat = mathLogic.didPolygonsCollide(
+            tankLogic.getPolygon(newTanks.me),
+            tankLogic.getPolygon(newTanks[tank])
+          );
+
+          if (colDat.col) {
+            console.log("we got a tank collision ");
+
+            let colPoints = colDat.poly1.map((dats) =>
+              tankLogic.convertPolygonCollisionDataToTankMapCoordinate(
+                dats,
+                newTanks[tank]
+              )
+            );
+            newTanks.me.colLine = [
+              ...colPoints,
+              ...(colPoints = colDat.poly2.map((dats) =>
+                tankLogic.convertPolygonCollisionDataToTankMapCoordinate(
+                  dats,
+                  newTanks["me"]
+                )
+              )),
+            ];
+          }
+        }
+        /* END OF EXPERIMANTAL POLY ON POLY (TANK/TANK) COLLISIONS */
+
         // Spawn Of A Tank
         if (
           !newTanks[tank].exploded &&

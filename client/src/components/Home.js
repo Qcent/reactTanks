@@ -58,6 +58,8 @@ const Home = ({ user, logout, emitTankData, fetchPlayers }) => {
     mapXpos: 2600,
     mapYpos: 1700,
     cruiseMode: true, // keep Tank centered
+    nameDisplay: 2,
+    healthDisplay: 2,
     viewPortWidth: 1500,
     viewPortHeight: 600,
     longestKillStreak: 0,

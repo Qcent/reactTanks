@@ -68,6 +68,71 @@ const mathLogic = {
   },
   isRightOfPath: (v1, v2, p) =>
     (p[1] - v1[1]) * (v2[0] - v1[0]) - (p[0] - v1[0]) * (v2[1] - v1[1]) >= 0,
+  pointVsPath: (v1, v2, p) =>
+    // returns: <0 if point has not crossed path,
+    //          0 if point is on path,
+    //          >0 if point has crossed path
+    (p[1] - v1[1]) * (v2[0] - v1[0]) - (p[0] - v1[0]) * (v2[1] - v1[1]),
+  didPolygonsCollide: (poly1, poly2) => {
+    // polygon obj = {sides:[[x,y],[x2,y2]],points:[[x,y]]}
+    // compare every vertex of poly 1 against the sides of poly2
+
+    let col = false,
+      retVal1 = [],
+      retVal2 = [];
+    poly1.points.forEach((point) => {
+      if (1 || !col) {
+        //console.log("checking point: ", point);
+        let inside = true,
+          values = [];
+        poly2.sides.forEach(([p1, p2]) => {
+          if (inside) {
+            // console.log("\t against side: ", p1, p2);
+            const val = mathLogic.pointVsPath(p1, p2, point);
+            values.push(val);
+            // console.log("\t\t value: ", val);
+            if (val < 0) {
+              //console.log("point: ", point, " is NOT in poly2");
+              inside = false;
+            }
+          }
+        });
+        if (inside) {
+          //console.log("point: ", point, " IS in poly2");
+          col = true;
+          retVal1.push(values);
+        }
+      }
+    });
+
+    // then test poly2 verticies agains poly1 sides
+    poly2.points.forEach((point) => {
+      if (1 || !col) {
+        //console.log("checking point: ", point);
+        let inside = true,
+          values = [];
+        poly1.sides.forEach(([p1, p2]) => {
+          if (inside) {
+            // console.log("\t against side: ", p1, p2);
+            const val = mathLogic.pointVsPath(p1, p2, point);
+            values.push(val);
+            // console.log("\t\t value: ", val);
+            if (val < 0) {
+              //console.log("point: ", point, " is NOT in poly1");
+              inside = false;
+            }
+          }
+        });
+        if (inside) {
+          //console.log("point: ", point, " IS in poly1");
+          col = true;
+          retVal2.push(values);
+        }
+      }
+    });
+
+    return { col, poly1: retVal1, poly2: retVal2 };
+  },
 };
 
 export default mathLogic;

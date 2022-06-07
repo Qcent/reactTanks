@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('new-tank-position', (data) => {
-    socket.broadcast.emit('new-tank-position', { ...data });
+    socket.broadcast.volitile.emit('new-tank-position', { ...data });
     onlineUsers[data.id] = { ...onlineUsers[data.id], ...data, joined: false };
   });
 

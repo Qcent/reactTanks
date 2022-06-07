@@ -81,7 +81,7 @@ const Overlay = ({ styling, tankState, gameState, mapOverlay, mapObjects }) => {
             color: "#a5abb9",
             backgroundColor: "rgba(66, 66, 66, .8)",
             borderRadius: "5px",
-            padding: "5px 8px",
+            padding: "5px 8px 4px",
           }}
         >
           {gTicker}

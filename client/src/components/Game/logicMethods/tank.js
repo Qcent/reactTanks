@@ -60,6 +60,36 @@ const tankLogic = {
 
     return true;
   },
+  convertPolygonCollisionDataToTankMapCoordinate: (array, tank) => {
+    if (!array.length) return;
+    const { width, height } = tankLogic.type[tank.tankType];
+    const mapCenter = [tank.xPos + width / 2, tank.yPos + height / 2],
+      axis1Max = array[0] + array[2],
+      axis2Max = array[1] + array[3],
+      axis1Yminus = array[0] * (height / axis1Max),
+      axis2Xminus = array[1] * (width / axis2Max);
+
+    return mathLogic.translateVirtex(
+      mathLogic.rotateVirtex(
+        width / 2 - axis2Xminus,
+        -height / 2 + axis1Yminus,
+        tank.theta
+      ),
+      mapCenter
+    );
+  },
+  getPolygon: (tank) => {
+    const v = tankLogic.getVerticesMapCoOrds(tank);
+    return {
+      sides: [
+        [v[0], v[1]],
+        [v[1], v[2]],
+        [v[2], v[3]],
+        [v[3], v[0]],
+      ],
+      points: v,
+    };
+  },
   getFaceArray: (tank) => {
     const v = tankLogic.getVerticesMapCoOrds(tank);
     return [
